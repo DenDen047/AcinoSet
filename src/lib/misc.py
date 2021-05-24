@@ -3,43 +3,59 @@ import numpy as np
 import sympy as sp
 
 
-def get_markers():
-    return [
-        'nose', 'r_eye', 'l_eye', 'neck_base',
-        'spine', 'tail_base', 'tail1', 'tail2',
-        'r_shoulder', 'r_front_knee', 'r_front_ankle', #'r_front_paw',
-        'l_shoulder', 'l_front_knee', 'l_front_ankle', #'l_front_paw',
-        'r_hip', 'r_back_knee', 'r_back_ankle', #'r_back_paw',
-        'l_hip', 'l_back_knee', 'l_back_ankle', #'l_back_paw',
-        # 'lure'
-    ]   # excludes paws & lure for now!
+def get_markers(mode: str = 'min'):
+    if mode == 'min':
+        s = [
+            'nose', 'r_eye', 'l_eye', 'neck_base',
+            'spine', 'tail_base', 'tail1', 'tail2',
+            'r_shoulder', 'r_front_knee', 'r_front_ankle', # 'r_front_paw',
+            'l_shoulder', 'l_front_knee', 'l_front_ankle', # 'l_front_paw',
+            'r_hip', 'r_back_knee', 'r_back_ankle', # 'r_back_paw',
+            'l_hip', 'l_back_knee', 'l_back_ankle', # 'l_back_paw',
+            # 'lure'
+        ]   # excludes paws & lure for now!
+    elif mode == 'all':
+        s = [
+            'nose', 'r_eye', 'l_eye', 'neck_base',
+            'spine', 'tail_base', 'tail1', 'tail2',
+            'r_shoulder', 'r_front_knee', 'r_front_ankle', 'r_front_paw',
+            'l_shoulder', 'l_front_knee', 'l_front_ankle', 'l_front_paw',
+            'r_hip', 'r_back_knee', 'r_back_ankle', 'r_back_paw',
+            'l_hip', 'l_back_knee', 'l_back_ankle', 'l_back_paw',
+            'lure'
+        ]
+
+    return s
+
 
 
 def get_skeleton():
     return [
         ['nose', 'l_eye'], ['nose', 'r_eye'], ['nose', 'neck_base'], ['l_eye', 'neck_base'], ['r_eye', 'neck_base'],
         ['neck_base', 'spine'], ['spine', 'tail_base'], ['tail_base', 'tail1'], ['tail1', 'tail2'],
-        ['neck_base', 'r_shoulder'], ['r_shoulder', 'r_front_knee'], ['r_front_knee', 'r_front_ankle'], #['r_front_ankle', 'r_front_paw'],
-        ['neck_base', 'l_shoulder'], ['l_shoulder', 'l_front_knee'], ['l_front_knee', 'l_front_ankle'], #['l_front_ankle', 'l_front_paw'],
-        ['tail_base', 'r_hip'], ['r_hip', 'r_back_knee'], ['r_back_knee', 'r_back_ankle'], #['r_back_ankle', 'r_back_paw'],
-        ['tail_base', 'l_hip'], ['l_hip', 'l_back_knee'], ['l_back_knee', 'l_back_ankle'], #['l_back_ankle', 'l_back_paw']
+        ['neck_base', 'r_shoulder'], ['r_shoulder', 'r_front_knee'], ['r_front_knee', 'r_front_ankle'], # ['r_front_ankle', 'r_front_paw'],
+        ['neck_base', 'l_shoulder'], ['l_shoulder', 'l_front_knee'], ['l_front_knee', 'l_front_ankle'], # ['l_front_ankle', 'l_front_paw'],
+        ['tail_base', 'r_hip'], ['r_hip', 'r_back_knee'], ['r_back_knee', 'r_back_ankle'], # ['r_back_ankle', 'r_back_paw'],
+        ['tail_base', 'l_hip'], ['l_hip', 'l_back_knee'], ['l_back_knee', 'l_back_ankle'], # ['l_back_ankle', 'l_back_paw']
     ]   # exludes paws for now!
 
 
 def get_pose_params():
-    states = ['x_0', 'y_0', 'z_0',         # head position in inertial
-              'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
-              'phi_1', 'theta_1', 'psi_1', # neck
-              'theta_2',                   # front torso
-              'phi_3', 'theta_3', 'psi_3', # back torso
-              'theta_4', 'psi_4',          # tail_base
-              'theta_5', 'psi_5',          # tail_mid
-              'theta_6', 'theta_7',        # l_shoulder, l_front_knee
-              'theta_8', 'theta_9',        # r_shoulder, r_front_knee
-              'theta_10', 'theta_11',      # l_hip, l_back_knee
-              'theta_12', 'theta_13',      # r_hip, r_back_knee
-#               'x_l', 'y_l', 'z_l'          # lure position in inertial
-             ] # exludes paws & lure for now!
+    states = [
+        'x_0', 'y_0', 'z_0',         # head position in inertial
+        'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
+        'phi_1', 'theta_1', 'psi_1', # neck
+        'theta_2',                   # front torso
+        'phi_3', 'theta_3', 'psi_3', # back torso
+        'theta_4', 'psi_4',          # tail_base
+        'theta_5', 'psi_5',          # tail_mid
+        'theta_6', 'theta_7',        # l_shoulder, l_front_knee
+        'theta_8', 'theta_9',        # r_shoulder, r_front_knee
+        'theta_10', 'theta_11',      # l_hip, l_back_knee
+        'theta_12', 'theta_13',      # r_hip, r_back_knee
+        # 'x_l', 'y_l', 'z_l'          # lure position in inertial
+    ] # exludes paws & lure for now!
+
     return dict(zip(states, range(len(states))))
 
 
@@ -111,7 +127,7 @@ def get_3d_marker_coords(x):
     p_r_back_knee   = p_r_hip        + R12_I @ func([0, 0, -0.32])
     p_r_back_ankle  = p_r_back_knee  + R13_I @ func([0, 0, -0.25])
 
-#     p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
+    # p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
 
     return func([p_nose.T, p_r_eye.T, p_l_eye.T,
                  p_neck_base.T, p_spine.T,
@@ -120,7 +136,7 @@ def get_3d_marker_coords(x):
                  p_l_shoulder.T, p_l_front_knee.T, p_l_front_ankle.T,
                  p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T,
                  p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T,
-#                  p_lure.T
+                #  p_lure.T
                 ])
 
 

@@ -114,7 +114,8 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         247, 186,   # l_shoulder, l_front_knee
         194, 164,   # r_shoulder, r_front_knee
         295, 243,   # l_hip, l_back_knee
-        334, 149    # r_hip, r_back_knee
+        334, 149,   # r_hip, r_back_knee
+        # 4, 7, 5,    # lure position in inertial
     ]
     Q = np.array(Q, dtype=np.float64)**2
 
@@ -423,7 +424,7 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
 
     app.save_fte(dict(x=x, dx=dx, ddx=ddx), OUT_DIR, scene_fpath, start_frame, dlc_thresh)
 
-    fig_fpath = os.path.join(OUT_DIR, 'fte.svg')
+    fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, out_fpath=fig_fpath)
 
 
@@ -530,7 +531,7 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     #     states[[idx['x_l'], idx['y_l']]] = [lure_x_est, lure_y_est]             # lure x & y in inertial
     #     states[[idx['dx_l'], idx['dy_l']]] = [lure_x_slope/sT, lure_y_slope/sT] # lure x & y velocity in inertial
     # except ValueError as e: # for when there is no lure data
-    #     print(f'Lure initialisation error: '{e}' -> Lure states initialised to zero')
+    #     print(f'Lure initialisation error: {e} -> Lure states initialised to zero')
 
     points_3d_df = points_3d_df[points_3d_df['frame'].between(start_frame, end_frame)]
 
@@ -548,11 +549,11 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
 
     # INITIAL STATE COVARIANCE P - how much do we trust the initial states
     # position
-    p_lin_pos = np.ones(3)*3**2                       # Know initial position within 4m
+    p_lin_pos = np.ones(3)*3**2 # Know initial position within 4m
     p_ang_pos = np.ones(n_pose_params-3)*(np.pi/4)**2 # Know initial angles within 60 degrees, heading may need to change
     # p_lure_pos = p_lin_pos
     # velocity
-    p_lin_vel = np.ones(3)*5**2                       # Know this within 2.5m/s and it's a uniform random variable
+    p_lin_vel = np.ones(3)*5**2 # Know this within 2.5m/s and it's a uniform random variable
     p_ang_vel = np.ones(n_pose_params-3)*3**2
     # p_lure_vel = p_lin_vel
     # acceleration
@@ -562,9 +563,9 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     # p_lure_acc = p_lin_acc
 
     P = np.diag(np.concatenate([
-        p_lin_pos, p_ang_pos, #p_lure_pos,
-        p_lin_vel, p_ang_vel, #p_lure_vel,
-        p_lin_acc, p_ang_acc, #p_lure_acc
+        p_lin_pos, p_ang_pos, # p_lure_pos,
+        p_lin_vel, p_ang_vel, # p_lure_vel,
+        p_lin_acc, p_ang_acc, # p_lure_acc
     ]))
 
     # PROCESS COVARIANCE Q - how 'noisy' the constant acceleration model is
@@ -745,7 +746,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath)
     points_3d_df['point_index'] = points_3d_df.index
 
     # ========= SAVE TRIANGULATION RESULTS ========
-    markers = misc.get_markers()
+    markers = misc.get_markers(mode='all')
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
 
     for i, marker in enumerate(markers):
@@ -753,17 +754,17 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath)
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    app.save_tri(positions, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
+    print(positions.shape)
+    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, dlc_thresh)
 
 
-def dlc(DATA_DIR, dlc_thresh):
+def dlc(DATA_DIR, OUT_DIR, dlc_thresh):
     video_fpaths = sorted(glob(os.path.join(DATA_DIR, 'cam[1-9].mp4'))) # original vids should be in the parent dir
-    OUT_DIR = os.path.join(DATA_DIR, 'dlc')
 
     with open(os.path.join(OUT_DIR, 'video_params.json'), 'w') as f:
         json.dump(dict(dlc_thresh=dlc_thresh), f)
 
-    app.create_labeled_videos(video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh)
+    app.create_labeled_videos(video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh, lure=True)
 
 
 # ========= MAIN ========
@@ -778,8 +779,6 @@ if __name__ == '__main__':
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
-    assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
 
     # load video info
     res, fps, num_frames, _ = app.get_vid_info(DATA_DIR)    # path to the directory having original videos
@@ -787,9 +786,11 @@ if __name__ == '__main__':
     assert 0 != args.end_frame <= num_frames, f'end_frame must be less than or equal to {num_frames}'
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
-    # # generate labelled videos with DLC measurement data
+    # generate labelled videos with DLC measurement data
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
+    assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     # print('========== DLC ==========\n')
-    # dlc(DATA_DIR, args.dlc_thresh)
+    # dlc(DATA_DIR, DLC_DIR, args.dlc_thresh)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -828,18 +829,18 @@ if __name__ == '__main__':
         filtered_points_2d_df = points_2d_df[points_2d_df['likelihood'] > args.dlc_thresh]    # ignore points with low likelihood
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    # print('========== Triangulation ==========\n')
-    # tri(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath)
-    # plt.close('all')
-    # print('========== SBA ==========\n')
-    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, args.plot)
-    # plt.close('all')
+    print('========== Triangulation ==========\n')
+    tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, args.dlc_thresh, scene_fpath)
+    plt.close('all')
+    print('========== SBA ==========\n')
+    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, args.plot)
+    plt.close('all')
     print('========== EKF ==========\n')
     ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh)
     plt.close('all')
-    # print('========== FTE ==========\n')
-    # fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, args.plot)
-    # plt.close('all')
+    print('========== FTE ==========\n')
+    fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, args.plot)
+    plt.close('all')
 
     if args.plot:
         print('Plotting results...')

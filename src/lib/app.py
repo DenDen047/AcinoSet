@@ -169,10 +169,13 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # All these save functions are very similar... Generalise!!
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
-def save_tri(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
+def save_tri(positions, out_dir, scene_fpath, markers, start_frame, dlc_thresh, save_videos=True):
     out_fpath = os.path.join(out_dir, 'tri.pickle')
-    save_optimised_cheetah(positions, out_fpath, extra_data=dict(start_frame=start_frame))
-    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, get_markers(), project_points_fisheye, start_frame)
+    save_optimised_cheetah(
+        positions, out_fpath,
+        extra_data=dict(start_frame=start_frame)
+    )
+    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
@@ -248,7 +251,7 @@ def get_vid_info(path_dir, vid_extension='mp4'):
     return (vid.width(), vid.height()), vid.fps(), vid.frame_count(), vid.codec()
 
 
-def create_labeled_videos(video_fpaths, videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None, draw_skeleton=False, pcutoff=0.5, dotsize=6, colormap='jet', skeleton_color='white'):
+def create_labeled_videos(video_fpaths, videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None, draw_skeleton=False, pcutoff=0.5, dotsize=6, colormap='jet', skeleton_color='white', lure: bool = False):
     from functools import partial
     from multiprocessing import Pool
 
@@ -259,6 +262,8 @@ def create_labeled_videos(video_fpaths, videotype='mp4', codec='mp4v', outputfra
     print('Saving labeled videos...')
 
     bodyparts = get_markers()
+    if lure and not 'lure' in bodyparts:
+        bodyparts.append('lure')
     bodyparts2connect = get_skeleton() if draw_skeleton else None
 
     if out_dir is None:
