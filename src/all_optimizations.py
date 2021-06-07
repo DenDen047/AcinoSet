@@ -843,18 +843,37 @@ if __name__ == '__main__':
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
+        pprint(filtered_points_2d_df)
         target_markers = misc.get_markers()
-        markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
-        num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
+
+        def frame_condition(i: int, n_markers: int) -> bool:
+            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
+            num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
+            return num_marker(i) == n_markers
+
+        key_markers = ['nose', 'r_eye', 'l_eye', 'neck_base']
+        def frame_condition_with_key_markers(i: int, n_min_cam: int, n_markers: int) -> bool:
+            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
+            markers = filtered_points_2d_df.query(
+                f'frame == {i} and ({markers_condition})'
+            )['marker']
+
+            values, counts = np.unique(markers, return_counts=True)
+            if len(values) != n_markers:
+                return False
+
+            counts = [counts[np.where(values==k)[0][0]] for k in key_markers]
+
+            return min(counts) >= n_min_cam
 
         start_frame, end_frame = None, None
         max_idx = filtered_points_2d_df['frame'].max() + 1
         for i in range(max_idx):
-            if num_marker(i) == len(target_markers):
+            if frame_condition_with_key_markers(i, 3, len(target_markers)):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1):
-            if num_marker(i) == len(target_markers):
+            if frame_condition_with_key_markers(i, 3, len(target_markers)):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
@@ -866,15 +885,15 @@ if __name__ == '__main__':
         filtered_points_2d_df = points_2d_df[points_2d_df['likelihood'] > args.dlc_thresh]    # ignore points with low likelihood
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    # print('========== Triangulation ==========\n')
-    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
-    # plt.close('all')
-    # print('========== SBA ==========\n')
-    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
-    # print('========== EKF ==========\n')
-    # ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    # plt.close('all')
+    print('========== Triangulation ==========\n')
+    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    plt.close('all')
+    print('========== SBA ==========\n')
+    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    plt.close('all')
+    print('========== EKF ==========\n')
+    ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    plt.close('all')
     print('========== FTE ==========\n')
     _ = fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
