@@ -217,7 +217,7 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # All these save functions are very similar... Generalise!!
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
-def save_tri(positions, out_dir, scene_fpath, markers, start_frame, dlc_thresh, save_videos=True):
+def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=True):
     out_fpath = os.path.join(out_dir, 'tri.pickle')
     save_optimised_cheetah(
         positions, out_fpath,
@@ -227,7 +227,7 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, dlc_thresh, 
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
+        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True)
 
 
 def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):

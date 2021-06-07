@@ -28,7 +28,6 @@ def get_markers(mode: str = 'min'):
     return s
 
 
-
 def get_skeleton():
     return [
         ['nose', 'l_eye'], ['nose', 'r_eye'], ['nose', 'neck_base'], ['l_eye', 'neck_base'], ['r_eye', 'neck_base'],
@@ -63,7 +62,6 @@ def get_3d_marker_coords(x):
     """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
     """
     idx = get_pose_params()
-
     func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
 
     # rotations
@@ -71,29 +69,29 @@ def get_3d_marker_coords(x):
     R0_I  = RI_0.T
     RI_1  = rot_z(x[idx['psi_1']]) @ rot_x(x[idx['phi_1']]) @ rot_y(x[idx['theta_1']]) @ RI_0  # neck
     R1_I  = RI_1.T
-    RI_2  = rot_y(x[idx['theta_2']]) @ RI_1                                                    # front torso
+    RI_2  = rot_y(x[idx['theta_2']]) @ RI_1     # front torso
     R2_I  = RI_2.T
     RI_3  = rot_z(x[idx['psi_3']]) @ rot_x(x[idx['phi_3']]) @ rot_y(x[idx['theta_3']]) @ RI_2  # back torso
     R3_I  = RI_3.T
-    RI_4  = rot_z(x[idx['psi_4']]) @ rot_y(x[idx['theta_4']]) @ RI_3                           # tail base
+    RI_4  = rot_z(x[idx['psi_4']]) @ rot_y(x[idx['theta_4']]) @ RI_3    # tail base
     R4_I  = RI_4.T
-    RI_5  = rot_z(x[idx['psi_5']]) @ rot_y(x[idx['theta_5']]) @ RI_4                           # tail mid
+    RI_5  = rot_z(x[idx['psi_5']]) @ rot_y(x[idx['theta_5']]) @ RI_4    # tail mid
     R5_I  = RI_5.T
-    RI_6  = rot_y(x[idx['theta_6']]) @ RI_2                                                    # l_shoulder
+    RI_6  = rot_y(x[idx['theta_6']]) @ RI_2     # l_shoulder
     R6_I  = RI_6.T
-    RI_7  = rot_y(x[idx['theta_7']]) @ RI_6                                                    # l_front_knee
+    RI_7  = rot_y(x[idx['theta_7']]) @ RI_6     # l_front_knee
     R7_I  = RI_7.T
-    RI_8  = rot_y(x[idx['theta_8']]) @ RI_2                                                    # r_shoulder
+    RI_8  = rot_y(x[idx['theta_8']]) @ RI_2     # r_shoulder
     R8_I  = RI_8.T
-    RI_9  = rot_y(x[idx['theta_9']]) @ RI_8                                                    # r_front_knee
+    RI_9  = rot_y(x[idx['theta_9']]) @ RI_8     # r_front_knee
     R9_I  = RI_9.T
-    RI_10 = rot_y(x[idx['theta_10']]) @ RI_3                                                   # l_hip
+    RI_10 = rot_y(x[idx['theta_10']]) @ RI_3    # l_hip
     R10_I = RI_10.T
-    RI_11 = rot_y(x[idx['theta_11']]) @ RI_10                                                  # l_back_knee
+    RI_11 = rot_y(x[idx['theta_11']]) @ RI_10   # l_back_knee
     R11_I = RI_11.T
-    RI_12 = rot_y(x[idx['theta_12']]) @ RI_3                                                   # r_hip
+    RI_12 = rot_y(x[idx['theta_12']]) @ RI_3    # r_hip
     R12_I = RI_12.T
-    RI_13 = rot_y(x[idx['theta_13']]) @ RI_12                                                  # r_back_knee
+    RI_13 = rot_y(x[idx['theta_13']]) @ RI_12   # r_back_knee
     R13_I = RI_13.T
 
 
@@ -129,15 +127,16 @@ def get_3d_marker_coords(x):
 
     # p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
 
-    return func([p_nose.T, p_r_eye.T, p_l_eye.T,
-                 p_neck_base.T, p_spine.T,
-                 p_tail_base.T, p_tail_mid.T, p_tail_tip.T,
-                 p_r_shoulder.T, p_r_front_knee.T, p_r_front_ankle.T,
-                 p_l_shoulder.T, p_l_front_knee.T, p_l_front_ankle.T,
-                 p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T,
-                 p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T,
-                #  p_lure.T
-                ])
+    return func([
+        p_nose.T, p_r_eye.T, p_l_eye.T,
+        p_neck_base.T, p_spine.T,
+        p_tail_base.T, p_tail_mid.T, p_tail_tip.T,
+        p_r_shoulder.T, p_r_front_knee.T, p_r_front_ankle.T,
+        p_l_shoulder.T, p_l_front_knee.T, p_l_front_ankle.T,
+        p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T,
+        p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T,
+        # p_lure.T
+    ])
 
 
 def redescending_loss(err, a, b, c):

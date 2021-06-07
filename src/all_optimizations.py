@@ -6,6 +6,7 @@ import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
+from typing import Dict
 from glob import glob
 from time import time
 from pprint import pprint
@@ -21,9 +22,8 @@ from lib.misc import get_markers
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thresh, plot: bool = False):
+def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False):
     # === INITIAL VARIABLES ===
-
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'fte')
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -47,9 +47,7 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         ax.set_ylim((-5, 50))
         ax.legend()
         plt.show(block=True)
-    # save parameters
-    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(dict(start_frame=start_frame, end_frame=end_frame, dlc_thresh=dlc_thresh), f)
+
     # symbolic vars
     idx       = misc.get_pose_params()
     sym_list  = sp.symbols(list(idx.keys()))
@@ -63,7 +61,7 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         'cos': pyo.cos,
         'ImmutableDenseMatrix': np.array
     }
-    pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])
+    # pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])   # this is not used
     pos_funcs  = []
     for i in range(positions.shape[0]):
         lamb = sp.lambdify(sym_list, positions[i,:], modules=[func_map])
@@ -103,9 +101,9 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     # ========= IMPORT DATA ========
     markers = misc.get_markers()
     R = 5   # measurement standard deviation
-    Q = [   # model parameters variance
+    _Q = [   # model parameters variance
         4, 7, 5,    # head position in inertial
-        13, 9, 26,  # head rotation in inertial
+        3, 3, 3,  # head rotation in inertial
         32, 18, 12, # neck
         43,         # front torso
         10, 53, 34, # back torso
@@ -117,24 +115,23 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         334, 149,   # r_hip, r_back_knee
         # 4, 7, 5,    # lure position in inertial
     ]
-    Q = np.array(Q, dtype=np.float64)**2
-
-    def get_meas_from_df(n, c, l, d):
-        n_mask = points_2d_df['frame']  == n-1
-        l_mask = points_2d_df['marker'] == markers[l-1]
-        c_mask = points_2d_df['camera'] == c-1
-        d_idx  = {1:'x', 2:'y'}
-        val    = points_2d_df[n_mask & l_mask & c_mask]
-        return val[d_idx[d]].values[0]
-
-    def get_likelihood_from_df(n, c, l):
-        n_mask = points_2d_df['frame']  == n-1
-        l_mask = points_2d_df['marker'] == markers[l-1]
-        c_mask = points_2d_df['camera'] == c-1
-        val    = points_2d_df[n_mask & l_mask & c_mask]
-        return val['likelihood'].values[0]
+    Q = np.array(_Q, dtype=np.float64)**2
 
     proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
+
+    # save parameters
+    params['start_frame'] = start_frame
+    params['end_frame'] = end_frame
+    params['dlc_thresh'] = dlc_thresh
+    params['redesc_a'] = redesc_a
+    params['redesc_b'] = redesc_b
+    params['redesc_c'] = redesc_c
+    params['scene_fpath'] = scene_fpath
+    # params['camera_params'] = camera_params
+    params['R'] = R
+    params['Q'] = _Q
+    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
+        json.dump(params, f)
 
     #===================================================
     #                   Load in data
@@ -169,6 +166,21 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     m.D3 = pyo.RangeSet(D3)
 
     # ======= WEIGHTS =======
+    def get_meas_from_df(n, c, l, d):
+        n_mask = points_2d_df['frame']  == n-1
+        l_mask = points_2d_df['marker'] == markers[l-1]
+        c_mask = points_2d_df['camera'] == c-1
+        d_idx  = {1:'x', 2:'y'}
+        val    = points_2d_df[n_mask & l_mask & c_mask]
+        return val[d_idx[d]].values[0]
+
+    def get_likelihood_from_df(n, c, l):
+        n_mask = points_2d_df['frame']  == n-1
+        l_mask = points_2d_df['marker'] == markers[l-1]
+        c_mask = points_2d_df['camera'] == c-1
+        val    = points_2d_df[n_mask & l_mask & c_mask]
+        return val['likelihood'].values[0]
+
     def init_meas_weights(model, n, c, l):
         likelihood = get_likelihood_from_df(n + start_frame, c, l)
         if likelihood > dlc_thresh:
@@ -244,12 +256,11 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         idx[state] += 1
 
     #===== POSE CONSTRAINTS =====
-
     print('- Pose')
 
     def pose_constraint(m, n, l, d3):
         var_list = [m.x[n,p] for p in m.P]
-        [pos] = pos_funcs[l-1](*var_list) # get 3d points
+        [pos] = pos_funcs[l-1](*var_list)   # get 3d points
         return pos[d3-1] == m.poses[n,l,d3]
 
     m.pose_constraint = pyo.Constraint(m.N, m.L, m.D3, rule=pose_constraint)
@@ -427,8 +438,10 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, out_fpath=fig_fpath)
 
+    return params
 
-def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thresh):
+
+def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}) -> Dict:
     # ========= INIT VARS ========
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'ekf')
@@ -456,8 +469,13 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     max_pixel_err = cam_res[0]  # used in measurement covariance R
     sT = 1.0 / fps  # timestep
 
+    # save reconstruction parameters
+    params['start_frame'] = start_frame
+    params['end_frame'] = end_frame
+    params['dlc_thresh'] = dlc_thresh
+    params['sigma_bound'] = sigma_bound
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(dict(start_frame=start_frame, end_frame=end_frame, dlc_thresh=dlc_thresh), f)
+        json.dump(params, f)
 
     # ========= FUNCTION DEFINITINOS ========
     def h_function(x: np.ndarray, k: np.ndarray, d: np.ndarray, r: np.ndarray, t: np.ndarray):
@@ -695,13 +713,17 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     app.plot_cheetah_states(states['x'], states['smoothed_x'], fig_fpath)
 
 
-def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath, plot: bool = False):
+def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> Dict:
     OUT_DIR = os.path.join(DATA_DIR, 'sba')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'sba.log'))
 
+    # save reconstruction parameters
+    params['start_frame'] = start_frame
+    params['end_frame'] = end_frame
+    params['dlc_thresh'] = dlc_thresh
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(dict(start_frame=start_frame, end_frame=end_frame, dlc_thresh=dlc_thresh), f)
+        json.dump(params, f)
 
     # get 3D points
     points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
@@ -728,13 +750,18 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath,
 
     app.save_sba(positions, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
 
+    return params
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath):
+
+def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dict = {}) -> Dict:
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
 
+    # save reconstruction parameters
+    params['start_frame'] = start_frame
+    params['end_frame'] = end_frame
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(dict(start_frame=start_frame, end_frame=end_frame, dlc_thresh=dlc_thresh), f)
+        json.dump(params, f)
 
     # triangulation
     points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
@@ -754,17 +781,22 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath)
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    print(positions.shape)
-    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, dlc_thresh)
+    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame)
+
+    return params
 
 
-def dlc(DATA_DIR, OUT_DIR, dlc_thresh):
+def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
     video_fpaths = sorted(glob(os.path.join(DATA_DIR, 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
+    # save parameters
+    params['dlc_thresh'] = dlc_thresh
     with open(os.path.join(OUT_DIR, 'video_params.json'), 'w') as f:
-        json.dump(dict(dlc_thresh=dlc_thresh), f)
+        json.dump(params, f)
 
     app.create_labeled_videos(video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh, lure=True)
+
+    return params
 
 
 # ========= MAIN ========
@@ -782,6 +814,11 @@ if __name__ == '__main__':
 
     # load video info
     res, fps, num_frames, _ = app.get_vid_info(DATA_DIR)    # path to the directory having original videos
+    vid_params = {
+        'vid_resolution': res,
+        'vid_fps': fps,
+        'total_frames': num_frames,
+    }
     assert 0 < args.start_frame < num_frames, f'start_frame must be strictly between 0 and {num_frames}'
     assert 0 != args.end_frame <= num_frames, f'end_frame must be less than or equal to {num_frames}'
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
@@ -790,7 +827,7 @@ if __name__ == '__main__':
     DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     # print('========== DLC ==========\n')
-    # dlc(DATA_DIR, DLC_DIR, args.dlc_thresh)
+    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -829,23 +866,23 @@ if __name__ == '__main__':
         filtered_points_2d_df = points_2d_df[points_2d_df['likelihood'] > args.dlc_thresh]    # ignore points with low likelihood
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, args.dlc_thresh, scene_fpath)
-    plt.close('all')
-    print('========== SBA ==========\n')
-    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, args.plot)
-    plt.close('all')
-    print('========== EKF ==========\n')
-    ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh)
-    plt.close('all')
+    # print('========== Triangulation ==========\n')
+    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    # plt.close('all')
+    # print('========== SBA ==========\n')
+    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
+    # print('========== EKF ==========\n')
+    # ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    # plt.close('all')
     print('========== FTE ==========\n')
-    fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, args.plot)
+    _ = fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
 
     if args.plot:
         print('Plotting results...')
         data_fpaths = [
-            # os.path.join(DATA_DIR, 'tri', 'tri.pickle'), # plot is too busy when tri is included
+            os.path.join(DATA_DIR, 'tri', 'tri.pickle'), # plot is too busy when tri is included
             os.path.join(DATA_DIR, 'sba', 'sba.pickle'),
             os.path.join(DATA_DIR, 'ekf', 'ekf.pickle'),
             os.path.join(DATA_DIR, 'fte', 'fte.pickle')
