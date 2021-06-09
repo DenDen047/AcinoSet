@@ -103,7 +103,7 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     R = 5   # measurement standard deviation
     _Q = [   # model parameters variance
         4, 7, 5,    # head position in inertial
-        3, 3, 3,  # head rotation in inertial
+        13, 9, 26,  # head rotation in inertial
         32, 18, 12, # neck
         43,         # front torso
         10, 53, 34, # back torso
@@ -843,7 +843,6 @@ if __name__ == '__main__':
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
-        pprint(filtered_points_2d_df)
         target_markers = misc.get_markers()
 
         def frame_condition(i: int, n_markers: int) -> bool:
