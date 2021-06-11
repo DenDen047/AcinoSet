@@ -379,18 +379,19 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
     idxs = [[idxs[l] for l in lbl] for lbl in lbls]
 
     plt_shape = [len(titles)//2, 2]
-    fig, axs = plt.subplots(*plt_shape, figsize=(13,30))
+    fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
 
     for i in range(plt_shape[0]):
         for j in range(plt_shape[1]):
             k = 2*i+j
-            axs[i,j].set_title(titles[k])
-            axs[i,j].plot(x[:, idxs[k]])
+            ax = axs[i,j] if i > 1 else axs[j]
+            ax.set_title(titles[k])
+            ax.plot(x[:, idxs[k]])
             lgnd = lbls[k]
             if smoothed_x is not None:
-                axs[i,j].plot(smoothed_x[:, idxs[k]])
+                ax.plot(smoothed_x[:, idxs[k]])
                 lgnd += [l + ' (smoothed)' for l in lgnd]
-            axs[i,j].legend(lgnd)
+            ax.legend(lgnd)
 
     plt.show(block=False)
     return fig, axs
