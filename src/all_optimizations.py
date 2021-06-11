@@ -441,7 +441,7 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     return params
 
 
-def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}) -> Dict:
+def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}) -> Dict:
     # ========= INIT VARS ========
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'ekf')
@@ -452,10 +452,10 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams = camera_params
     camera_params = [[K, D, R, T] for K, D, R, T in zip(k_arr, d_arr, r_arr, t_arr)]
     # marker
-    markers = misc.get_markers()    # define DLC labels
+    markers = misc.get_markers(mode=marker_mode)    # define DLC labels
     n_markers = len(markers)
     # pose
-    idx = misc.get_pose_params()    # define the indices for the states
+    idx = misc.get_pose_params(mode=marker_mode)    # define the indices for the states
     n_pose_params = len(idx)
     n_states = 3 * n_pose_params
     vel_idx = n_states // 3
@@ -470,6 +470,7 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     sT = 1.0 / fps  # timestep
 
     # save reconstruction parameters
+    params['marker_mode'] = marker_mode
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
     params['dlc_thresh'] = dlc_thresh
@@ -481,7 +482,7 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     def h_function(x: np.ndarray, k: np.ndarray, d: np.ndarray, r: np.ndarray, t: np.ndarray):
         """Returns a numpy array of the 2D marker pixel coordinates (shape Nx2) for a given state vector x and camera parameters k, d, r, t.
         """
-        coords_3d = misc.get_3d_marker_coords(x)
+        coords_3d = misc.get_3d_marker_coords(x, mode='head')
         coords_2d = project_points_fisheye(coords_3d, k, d, r, t) # Project the 3D positions to 2D
         return coords_2d
 
@@ -567,11 +568,11 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
 
     # INITIAL STATE COVARIANCE P - how much do we trust the initial states
     # position
-    p_lin_pos = np.ones(3)*3**2 # Know initial position within 4m
+    p_lin_pos = np.ones(3)*3**2     # Know initial position within 4m
     p_ang_pos = np.ones(n_pose_params-3)*(np.pi/4)**2 # Know initial angles within 60 degrees, heading may need to change
     # p_lure_pos = p_lin_pos
     # velocity
-    p_lin_vel = np.ones(3)*5**2 # Know this within 2.5m/s and it's a uniform random variable
+    p_lin_vel = np.ones(3)*5**2     # Know this within 2.5m/s and it's a uniform random variable
     p_ang_vel = np.ones(n_pose_params-3)*3**2
     # p_lure_vel = p_lin_vel
     # acceleration
@@ -588,8 +589,7 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
 
     # PROCESS COVARIANCE Q - how 'noisy' the constant acceleration model is
     qb_list = [
-        5.0, 5.0, 5.0,    # head x, y, z in inertial
-        10.0, 10.0, 10.0, # head phi, theta, psi in inertial
+        5.0, 5.0, 5.0, 10.0, 10.0, 10.0,    # head x, y, z, phi, theta, psi in inertial
         5.0, 25.0, 5.0,   # neck phi, theta, psi
         50.0,             # front-torso theta
         5.0, 50.0, 25.0,  # back torso phi, theta, psi
@@ -599,8 +599,38 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         350.0, 200.0,     # r_shoulder theta, r_front_knee theta
         450.0, 400.0,     # l_hip theta, l_back_knee theta
         450.0, 400.0,     # r_hip theta, r_back_knee theta
+        5.0, 5.0, 5.0,  # lure x, y, z in inertial - same as head
     ]
-    # qb_list += qb_list[0:3] # lure x, y, z in inertial - same as head
+    qb_list = qb_list[:n_pose_params]
+    # qb_list += qb_list[0:3]
+    # qb_list = []
+    # if all([k in markers for k in ['nose', 'r_eye', 'l_eye']]):
+    #     qb_list += [5.0, 5.0, 5.0, 10.0, 10.0, 10.0]    # head x, y, z, phi, theta, psi in inertial
+    # if 'neck_base' in markers:
+    #     qb_list += [5.0, 25.0, 5.0]     # neck phi, theta, psi
+    # if 'spine' in markers:
+    #     qb_list += [50.0]   # front-torso theta
+    # if 'tail_base' in markers:
+    #     qb_list += [5.0, 50.0, 25.0]    # back torso phi, theta, psi
+    #     qb_list += [100.0, 30.0]    # tail base theta, psi
+    # if 'tail1' in markers:
+    #     qb_list += [140.0, 40.0]    # tail mid theta, psi
+    # if 'l_shoulder' in markers:
+    #     qb_list += [350.0]  # l_shoulder theta
+    # if 'l_front_knee' in markers:
+    #     qb_list += [200.0]  # l_front_knee theta
+    # if 'r_shoulder' in markers:
+    #     qb_list += [350.0]  # r_shoulder theta
+    # if 'r_front_knee' in markers:
+    #     qb_list += [200.0]  # r_front_knee theta
+    # if 'l_hip' in markers:
+    #     qb_list += [450.0]  # l_hip theta
+    # if 'l_back_knee' in markers:
+    #     qb_list += [400.0]  # l_back_knee theta
+    # if 'r_hip' in markers:
+    #     qb_list += [450.0]  # r_hip theta
+    # if 'r_back_knee' in markers:
+    #     qb_list += [400.0]  # r_back_knee theta
 
     qb = (np.diag(qb_list)/2)**2
     Q = np.block([
@@ -707,10 +737,10 @@ def ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         smoothed_dx=smooth_states_est_hist[:, vel_idx:acc_idx],
         smoothed_ddx=smooth_states_est_hist[:, acc_idx:]
     )
-    app.save_ekf(states, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
+    app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
 
     fig_fpath = os.path.join(OUT_DIR, 'ekf.pdf')
-    app.plot_cheetah_states(states['x'], states['smoothed_x'], fig_fpath)
+    app.plot_cheetah_states(states['x'], states['smoothed_x'], marker_mode, fig_fpath)
 
 
 def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> Dict:
@@ -868,11 +898,11 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = filtered_points_2d_df['frame'].max() + 1
         for i in range(max_idx):
-            if frame_condition_with_key_markers(i, 3, len(target_markers)):
+            if frame_condition(i, len(target_markers)):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1):
-            if frame_condition_with_key_markers(i, 3, len(target_markers)):
+            if frame_condition(i, len(target_markers)):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
@@ -884,18 +914,18 @@ if __name__ == '__main__':
         filtered_points_2d_df = points_2d_df[points_2d_df['likelihood'] > args.dlc_thresh]    # ignore points with low likelihood
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
-    plt.close('all')
-    print('========== SBA ==========\n')
-    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== Triangulation ==========\n')
+    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    # plt.close('all')
+    # print('========== SBA ==========\n')
+    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
     print('========== EKF ==========\n')
-    ekf(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    ekf(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     plt.close('all')
-    print('========== FTE ==========\n')
-    _ = fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== FTE ==========\n')
+    # _ = fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
 
     if args.plot:
         print('Plotting results...')

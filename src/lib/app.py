@@ -179,8 +179,8 @@ def plot_scene(data_dir, scene_fname=None, manual_points_only=False, **kwargs):
     plot_extrinsics(scene_fpath, pts_2d, frames, triangulate_points_fisheye, manual_points_only, **kwargs)
 
 
-def plot_cheetah_states(states, smoothed_states=None, out_fpath=None, mplstyle_fpath=None):
-    fig, axs = plot_optimized_states(states, smoothed_states, mplstyle_fpath)
+def plot_cheetah_states(states, smoothed_states=None, mode='default', out_fpath=None, mplstyle_fpath=None):
+    fig, axs = plot_optimized_states(states, smoothed_states, mode, mplstyle_fpath)
     if out_fpath is not None:
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')
@@ -240,13 +240,13 @@ def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_vide
         create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
 
 
-def save_ekf(states, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
-    positions = [get_3d_marker_coords(state) for state in states['x']]
-    smoothed_positions = [get_3d_marker_coords(state) for state in states['smoothed_x']]
+def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
+    positions = [get_3d_marker_coords(state, mode) for state in states['x']]
+    smoothed_positions = [get_3d_marker_coords(state, mode) for state in states['smoothed_x']]
 
     out_fpath = os.path.join(out_dir, 'ekf.pickle')
     save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
-    save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, get_markers(), project_points_fisheye, start_frame)
+    save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, get_markers(mode), project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir

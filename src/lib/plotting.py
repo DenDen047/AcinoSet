@@ -346,33 +346,36 @@ def plot_marker_3d(pts_3d, frames=None, fitted_pts_3d=None, fig_title='3D points
     plt.show(block=False)
 
 
-def plot_optimized_states(x, smoothed_x=None, mplstyle_fpath=None):
+def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=None):
     x = np.array(x)
     if smoothed_x is not None:
         smoothed_x = np.array(smoothed_x)
     if mplstyle_fpath is not None:
         plt.style.use(mplstyle_fpath)
 
-    titles = [#'Lure positions',
-              'Head positions', 'Head angles', 'Neck angles',
-              'Front torso angle', 'Back torso angles',
-              'Tail base angles', 'Tail mid angles',
-              'Left shoulder angle', 'Left front knee angle',
-              'Right shoulder angles', 'Right front knee angle',
-              'Left hip angle', 'Left back knee angle',
-              'Right hip angle', 'Right back knee angle']
+    if mode == 'default':
+        titles = [#'Lure positions',
+                'Head positions', 'Head angles', 'Neck angles',
+                'Front torso angle', 'Back torso angles',
+                'Tail base angles', 'Tail mid angles',
+                'Left shoulder angle', 'Left front knee angle',
+                'Right shoulder angles', 'Right front knee angle',
+                'Left hip angle', 'Left back knee angle',
+                'Right hip angle', 'Right back knee angle']
+        lbls = [#['x_l', 'y_l', 'z_l'], # exclude lure for now
+                ['x_0', 'y_0', 'z_0'],
+                ['phi_0', 'theta_0', 'psi_0'], ['phi_1', 'theta_1', 'psi_1'],
+                ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
+                ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
+                ['theta_6'], ['theta_7'],
+                ['theta_8'], ['theta_9'],
+                ['theta_10'], ['theta_11'],
+                ['theta_12'], ['theta_13']]
+    elif mode == 'head':
+        titles = ['Head positions', 'Head angles',]
+        lbls = [['x_0', 'y_0', 'z_0'], ['phi_0', 'theta_0', 'psi_0']]
 
-    lbls = [#['x_l', 'y_l', 'z_l'], # exclude lure for now
-            ['x_0', 'y_0', 'z_0'],
-            ['phi_0', 'theta_0', 'psi_0'], ['phi_1', 'theta_1', 'psi_1'],
-            ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
-            ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
-            ['theta_6'], ['theta_7'],
-            ['theta_8'], ['theta_9'],
-            ['theta_10'], ['theta_11'],
-            ['theta_12'], ['theta_13']]
-
-    idxs = get_pose_params()
+    idxs = get_pose_params(mode=mode)
     idxs = [[idxs[l] for l in lbl] for lbl in lbls]
 
     plt_shape = [len(titles)//2, 2]
