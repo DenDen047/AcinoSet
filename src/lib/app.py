@@ -147,11 +147,10 @@ def plot_cheetah_states(states, smoothed_states=None, out_fpath=None, mplstyle_f
 
 
 def _plot_cheetah_reconstruction(positions, data_dir, scene_fname=None, labels=None, **kwargs):
-    from .plotting import Cheetah
-
+    from . import plotting
     positions = np.array(positions)
     *_, scene_fpath = find_scene_file(data_dir, scene_fname, verbose=False)
-    ca = Cheetah(positions, scene_fpath, labels, project_points_fisheye, **kwargs)
+    ca = plotting.Cheetah(positions, scene_fpath, labels, project_points_fisheye, **kwargs)
     ca.animation()
 
 
