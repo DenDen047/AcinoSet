@@ -252,12 +252,12 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_v
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
         create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
 
-def save_fte(states, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
-    positions = [get_3d_marker_coords(state) for state in states['x']]
+def save_fte(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
+    positions = [get_3d_marker_coords(state, mode) for state in states['x']]
 
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     save_optimised_cheetah(positions, out_fpath, extra_data=dict(**states, start_frame=start_frame))
-    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, get_markers(), project_points_fisheye, start_frame)
+    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, get_markers(mode), project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir

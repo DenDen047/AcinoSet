@@ -22,7 +22,7 @@ from lib.misc import get_markers
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False):
+def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False):
     # === INITIAL VARIABLES ===
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'fte')
@@ -49,9 +49,9 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         plt.show(block=True)
 
     # symbolic vars
-    idx       = misc.get_pose_params()
+    idx       = misc.get_pose_params(mode=mode)
     sym_list  = sp.symbols(list(idx.keys()))
-    positions = misc.get_3d_marker_coords(sym_list)
+    positions = misc.get_3d_marker_coords(sym_list, mode=mode)
 
     t0 = time()
 
@@ -99,20 +99,20 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
     D_arr = D_arr.reshape((-1,4))
 
     # ========= IMPORT DATA ========
-    markers = misc.get_markers()
+    markers = misc.get_markers(mode=mode)
     R = 5   # measurement standard deviation
     _Q = [   # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
-        32, 18, 12, # neck
-        43,         # front torso
-        10, 53, 34, # back torso
-        90, 43,     # tail_base
-        118, 51,    # tail_mid
-        247, 186,   # l_shoulder, l_front_knee
-        194, 164,   # r_shoulder, r_front_knee
-        295, 243,   # l_hip, l_back_knee
-        334, 149,   # r_hip, r_back_knee
+        # 32, 18, 12, # neck
+        # 43,         # front torso
+        # 10, 53, 34, # back torso
+        # 90, 43,     # tail_base
+        # 118, 51,    # tail_mid
+        # 247, 186,   # l_shoulder, l_front_knee
+        # 194, 164,   # r_shoulder, r_front_knee
+        # 295, 243,   # l_hip, l_back_knee
+        # 334, 149,   # r_hip, r_back_knee
         # 4, 7, 5,    # lure position in inertial
     ]
     Q = np.array(_Q, dtype=np.float64)**2
@@ -321,25 +321,25 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
 
     m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
     m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
-    m.neck_phi_1           = pyo.Constraint(m.N, rule=neck_phi_1)
-    m.neck_theta_1         = pyo.Constraint(m.N, rule=neck_theta_1)
-    m.neck_psi_1           = pyo.Constraint(m.N, rule=neck_psi_1)
-    m.front_torso_theta_2  = pyo.Constraint(m.N, rule=front_torso_theta_2)
-    m.back_torso_theta_3   = pyo.Constraint(m.N, rule=back_torso_theta_3)
-    m.back_torso_phi_3     = pyo.Constraint(m.N, rule=back_torso_phi_3)
-    m.back_torso_psi_3     = pyo.Constraint(m.N, rule=back_torso_psi_3)
-    m.tail_base_theta_4    = pyo.Constraint(m.N, rule=tail_base_theta_4)
-    m.tail_base_psi_4      = pyo.Constraint(m.N, rule=tail_base_psi_4)
-    m.tail_mid_theta_5     = pyo.Constraint(m.N, rule=tail_mid_theta_5)
-    m.tail_mid_psi_5       = pyo.Constraint(m.N, rule=tail_mid_psi_5)
-    m.l_shoulder_theta_6   = pyo.Constraint(m.N, rule=l_shoulder_theta_6)
-    m.l_front_knee_theta_7 = pyo.Constraint(m.N, rule=l_front_knee_theta_7)
-    m.r_shoulder_theta_8   = pyo.Constraint(m.N, rule=r_shoulder_theta_8)
-    m.r_front_knee_theta_9 = pyo.Constraint(m.N, rule=r_front_knee_theta_9)
-    m.l_hip_theta_10       = pyo.Constraint(m.N, rule=l_hip_theta_10)
-    m.l_back_knee_theta_11 = pyo.Constraint(m.N, rule=l_back_knee_theta_11)
-    m.r_hip_theta_12       = pyo.Constraint(m.N, rule=r_hip_theta_12)
-    m.r_back_knee_theta_13 = pyo.Constraint(m.N, rule=r_back_knee_theta_13)
+    # m.neck_phi_1           = pyo.Constraint(m.N, rule=neck_phi_1)
+    # m.neck_theta_1         = pyo.Constraint(m.N, rule=neck_theta_1)
+    # m.neck_psi_1           = pyo.Constraint(m.N, rule=neck_psi_1)
+    # m.front_torso_theta_2  = pyo.Constraint(m.N, rule=front_torso_theta_2)
+    # m.back_torso_theta_3   = pyo.Constraint(m.N, rule=back_torso_theta_3)
+    # m.back_torso_phi_3     = pyo.Constraint(m.N, rule=back_torso_phi_3)
+    # m.back_torso_psi_3     = pyo.Constraint(m.N, rule=back_torso_psi_3)
+    # m.tail_base_theta_4    = pyo.Constraint(m.N, rule=tail_base_theta_4)
+    # m.tail_base_psi_4      = pyo.Constraint(m.N, rule=tail_base_psi_4)
+    # m.tail_mid_theta_5     = pyo.Constraint(m.N, rule=tail_mid_theta_5)
+    # m.tail_mid_psi_5       = pyo.Constraint(m.N, rule=tail_mid_psi_5)
+    # m.l_shoulder_theta_6   = pyo.Constraint(m.N, rule=l_shoulder_theta_6)
+    # m.l_front_knee_theta_7 = pyo.Constraint(m.N, rule=l_front_knee_theta_7)
+    # m.r_shoulder_theta_8   = pyo.Constraint(m.N, rule=r_shoulder_theta_8)
+    # m.r_front_knee_theta_9 = pyo.Constraint(m.N, rule=r_front_knee_theta_9)
+    # m.l_hip_theta_10       = pyo.Constraint(m.N, rule=l_hip_theta_10)
+    # m.l_back_knee_theta_11 = pyo.Constraint(m.N, rule=l_back_knee_theta_11)
+    # m.r_hip_theta_12       = pyo.Constraint(m.N, rule=r_hip_theta_12)
+    # m.r_back_knee_theta_13 = pyo.Constraint(m.N, rule=r_back_knee_theta_13)
 
     # ===== MEASUREMENT CONSTRAINTS =====
     print('- Measurement')
@@ -433,10 +433,10 @@ def fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, dlc_thres
         dx.append([m.dx[n, p].value for p in m.P])
         ddx.append([m.ddx[n, p].value for p in m.P])
 
-    app.save_fte(dict(x=x, dx=dx, ddx=ddx), OUT_DIR, scene_fpath, start_frame, dlc_thresh)
+    app.save_fte(dict(x=x, dx=dx, ddx=ddx), mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
 
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
-    app.plot_cheetah_states(x, out_fpath=fig_fpath)
+    app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
 
     return params
 
@@ -482,7 +482,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     def h_function(x: np.ndarray, k: np.ndarray, d: np.ndarray, r: np.ndarray, t: np.ndarray):
         """Returns a numpy array of the 2D marker pixel coordinates (shape Nx2) for a given state vector x and camera parameters k, d, r, t.
         """
-        coords_3d = misc.get_3d_marker_coords(x, mode='head')
+        coords_3d = misc.get_3d_marker_coords(x, mode=mode)
         coords_2d = project_points_fisheye(coords_3d, k, d, r, t) # Project the 3D positions to 2D
         return coords_2d
 
@@ -920,12 +920,12 @@ if __name__ == '__main__':
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
-    print('========== EKF ==========\n')
-    ekf(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    plt.close('all')
-    # print('========== FTE ==========\n')
-    # _ = fte(DATA_DIR, points_2d_df, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # print('========== EKF ==========\n')
+    # ekf(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     # plt.close('all')
+    print('========== FTE ==========\n')
+    _ = fte(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    plt.close('all')
 
     if args.plot:
         print('Plotting results...')
