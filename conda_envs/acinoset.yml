@@ -23,3 +23,8 @@ dependencies:
     - tables
     - nptyping==0.3.1
     - tqdm
+    - PyYAML
+    - Pympler
+    - networkx
+    - dill
+    - cloudpickle
