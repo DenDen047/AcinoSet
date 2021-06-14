@@ -1,6 +1,7 @@
 import os
 import platform
 import json
+import pickle
 import numpy as np
 from pyomo.core.expr.current import log as pyomo_log
 import sympy as sp
@@ -13,11 +14,11 @@ import pyomo.environ as pyo
 from pyomo.opt import SolverFactory
 from lib import misc, utils, app
 from lib.calib import triangulate_points_fisheye, project_points_fisheye
-from py_utils import data_ops, log
+import logging
 from all_optimizations import ekf
 
 # Create a module logger with the name of this file.
-logger = log.logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def measurements_to_df(m: pyo.Model):
@@ -231,7 +232,8 @@ def create_pose_functions(data_dir: str):
         pos_funcs.append(lamb)
 
     # Save the functions to file.
-    data_ops.save_dill(os.path.join(data_dir, "pose_3d_functions.pickle"), (pose_to_3d, pos_funcs))
+    with open(os.path.join(data_dir, "pose_3d_functions.pickle"), "wb") as f:
+        pickle.dump((pose_to_3d, pos_funcs), f)
 
 
 def run(root_dir: str,
@@ -339,7 +341,8 @@ def run(root_dir: str,
         N = end_frame - start_frame
 
     ## ========= POSE FUNCTIONS ========
-    pose_to_3d, pos_funcs = data_ops.load_dill(os.path.join(root_dir, "pose_3d_functions.pickle"))
+    with open(os.path.join(root_dir, "pose_3d_functions.pickle"), 'rb') as f:
+        pose_to_3d, pos_funcs = pickle.load(f)
 
     # ========= PROJECTION FUNCTIONS ========
     def pt3d_to_2d(x, y, z, K, D, R, t):
@@ -517,7 +520,8 @@ def run(root_dir: str,
         data[cam_idx] = pose_array
         # Pairwise correspondence data.
         h5_filename = os.path.basename(path)
-        pw_data[cam_idx] = data_ops.load_pickle(os.path.join(dlc_dir, f"{h5_filename[:4]}-predictions.pickle"))
+        with os.path.join(dlc_dir, f"{h5_filename[:4]}-predictions.pickle") as f:
+            pw_data[cam_idx] = pickle.load(f)
         cam_idx += 1
 
     # There has been a case where some camera view points have less frames than others. This can cause an issue when using automatic frame selection.
@@ -671,7 +675,8 @@ def run(root_dir: str,
     init_ddx = np.zeros((N, P))
     if init_ekf:
         state_indices = Q > 0
-        ekf_states = data_ops.load_pickle(os.path.join(os.path.dirname(out_dir), "ekf", "ekf.pickle"))
+        with open(os.path.join(os.path.dirname(out_dir), "ekf", "ekf.pickle"), 'rb') as f:
+            ekf_states = pickle.load(f)
         init_x[:, state_indices] = ekf_states["smoothed_x"]
         init_dx[:, state_indices] = ekf_states["smoothed_dx"]
         init_ddx[:, state_indices] = ekf_states["smoothed_ddx"]
@@ -933,7 +938,8 @@ def run_subset_tests(out_dir_prefix: str, loss: str):
 
 if __name__ == "__main__":
     root_dir = os.path.join("/", "data", "dlc", "to_analyse", "cheetah_videos")
-    data = data_ops.load_pickle("/data/zico/CheetahResults/test_videos_list.pickle")
+    with open(os.path.join("/data/zico/CheetahResults/test_videos_list.pickle.pickle"), 'rb') as f:
+        data = pickle.load(f)
     tests = data["test_dirs"]
     out_dir_prefix = "/data/zico/CheetahResults/test_initial_estimate"
     manually_selected_frames = {
