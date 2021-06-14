@@ -1,0 +1,9 @@
+FROM denden047/acinoset
+
+# init
+RUN apt-get update && apt-get upgrade -y
+RUN conda update -n base -c defaults conda -y
+
+# jupyterlab
+RUN conda install -c conda-forge jupyterlab
+
