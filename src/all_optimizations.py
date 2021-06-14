@@ -18,6 +18,7 @@ from lib import misc, utils, app
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from lib.misc import get_markers
 
+
 # plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 

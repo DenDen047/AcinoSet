@@ -14,12 +14,17 @@ import pyomo.environ as pyo
 from pyomo.opt import SolverFactory
 from lib import misc, utils, app
 from lib.calib import triangulate_points_fisheye, project_points_fisheye
-import logging
-import all_optimizations as opts
+from logging import getLogger, StreamHandler, DEBUG
+import all_optimizations as optimizations
 
 
 # Create a module logger with the name of this file.
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
+handler = StreamHandler()
+handler.setLevel(DEBUG)
+logger.setLevel(DEBUG)
+logger.addHandler(handler)
+logger.propagate = False
 
 
 def measurements_to_df(m: pyo.Model):
@@ -98,7 +103,7 @@ def loss_function(residual: float, loss="redescending"):
         return residual**2
 
 
-def create_pose_functions(data_dir: str):
+def create_pose_functions(pose_3d_funcs_path: str) -> None:
     ## ========= POSE FUNCTIONS ========
     #SYMBOLIC ROTATION MATRIX FUNCTIONS
     def rot_x(x):
@@ -213,17 +218,13 @@ def create_pose_functions(data_dir: str):
         p_r_hip.T,
         p_r_back_knee.T,
         p_r_back_ankle.T,
-        #     p_lure.T
+        # p_lure.T
     ])
 
     func_map = {"sin": pyo.sin, "cos": pyo.cos, "ImmutableDenseMatrix": np.array}
     sym_list = [
-        x,
-        y,
-        z,
-        *phi,
-        *theta,
-        *psi,
+        x, y, z,
+        *phi, *theta, *psi,
         # x_l, y_l, z_l
     ]
     pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])
@@ -233,33 +234,26 @@ def create_pose_functions(data_dir: str):
         pos_funcs.append(lamb)
 
     # Save the functions to file.
-    with open(os.path.join(data_dir, "pose_3d_functions.pickle"), "wb") as f:
+    with open(pose_3d_funcs_path, "wb") as f:
         cloudpickle.dump((pose_to_3d, pos_funcs), f)
 
 
 def run(
-    root_dir: str,
     data_path: str,
     start_frame: int,
     end_frame: int,
     dlc_thresh: float,
+    pose_3d_funcs_path: str,
     loss="redescending",
     init_ekf=False,
     opt=None,
-    out_dir_prefix: str = None,
     generate_reprojection_videos: bool = False,
     export_measurements: bool = False
 ):
     logger.info("Prepare data - Start")
-
     t0 = time()
 
-    if out_dir_prefix:
-        out_dir = os.path.join(out_dir_prefix, data_path, "fte_pw")
-    else:
-        out_dir = os.path.join(root_dir, data_path, "fte_pw")
-
-    data_dir = os.path.join(root_dir, data_path)
+    out_dir = os.path.join(data_path, "fte_pw")
     assert os.path.exists(data_dir)
     dlc_dir = os.path.join(data_dir, "dlc_pw")
     assert os.path.exists(dlc_dir)
@@ -305,8 +299,7 @@ def run(
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         target_markers = misc.get_markers()
         markers_condition = " or ".join([f"marker=='{ref}'" for ref in target_markers])
-        num_marker = lambda i: len(
-            filtered_points_2d_df.query(f"frame == {i} and ({markers_condition})")["marker"].unique())
+        num_marker = lambda i: len(filtered_points_2d_df.query(f"frame == {i} and ({markers_condition})")["marker"].unique())
 
         start_frame, end_frame = -1, -1
         max_idx = points_2d_df["frame"].max() + 1
@@ -344,7 +337,9 @@ def run(
         N = end_frame - start_frame
 
     ## ========= POSE FUNCTIONS ========
-    with open(os.path.join(root_dir, "pose_3d_functions.pickle"), 'rb') as f:
+    if not os.path.exists(pose_3d_funcs_path):
+        create_pose_functions(pose_3d_funcs_path)
+    with open(pose_3d_funcs_path, 'rb') as f:
         pose_to_3d, pos_funcs = cloudpickle.load(f)
 
     # ========= PROJECTION FUNCTIONS ========
@@ -440,7 +435,7 @@ def run(
     # estimate initial points
     logger.info("Estimate the initial trajectory")
     if init_ekf:
-        opts.ekf(
+        optimizations.ekf(
             os.path.join(os.path.dirname(out_dir)),
             points_2d_df,
             (K_arr, D_arr, R_arr, t_arr, cam_res, n_cams, fps),
@@ -840,25 +835,25 @@ def run(
 
     # Create 2D reprojection videos.
     if generate_reprojection_videos:
-        video_fpaths = sorted(glob(os.path.join(root_dir, data_path, "cam[1-9].mp4")))  # original vids should be in the parent dir
+        video_fpaths = sorted(glob(os.path.join(data_path, "cam[1-9].mp4")))  # original vids should be in the parent dir
         app.create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
 
-    logger.info("Done")
+    logger.info("The pairwise FTE has been DONE!")
 
 
-def run_subset_tests(out_dir_prefix: str, loss: str):
-    root_dir = os.path.join(
-        "/Users/zico/OneDrive - University of Cape Town/CheetahReconstructionResults/cheetah_videos")
-    test_videos = ("2017_12_09/top/jules/run1", "2017_08_29/top/jules/run1_1", "2019_02_27/romeo/run",
-                   "2017_12_16/top/phantom/flick1", "2019_03_03/menya/flick", "2017_12_21/top/lily/flick1",
-                   "2017_12_21/bottom/jules/flick2_2", "2019_02_27/kiara/run")
+if __name__ == "__main__":
+    # variables
+    root_dir = os.path.join("../data")
+    data_dir = os.path.join(root_dir, '2017_12_16/top/phantom/flick1')
+    start_frame = 1
+    end_frame = -1
 
-    t0 = time()
-    logger.info("Run reconstruction on all videos...")
+    logger.info("Run reconstruction on all videos on PyPy...")
+    logger.info(f"root_dir is {root_dir}")
+    logger.info(f"data_dir is {data_dir}")
+
     # Initialise the Ipopt solver.
-    opt = SolverFactory("ipopt",
-                        # executable="/home/zico/lib/ipopt/build/bin/ipopt"
-                        )
+    opt = SolverFactory("ipopt")
     # solver options
     opt.options["print_level"] = 5
     opt.options["max_iter"] = 1000
@@ -872,116 +867,16 @@ def run_subset_tests(out_dir_prefix: str, loss: str):
     opt.options["OF_ma86_scaling"] = "none"
     opt.options["OF_warm_start_init_point"] = "yes"
 
-    if platform.python_implementation() == "PyPy":
-        for test_dir in tqdm(test_videos):
-            run(root_dir,
-                test_dir,
-                start_frame=1,
-                end_frame=-1,
-                dlc_thresh=0.5,
-                loss=loss,
-                opt=opt,
-                out_dir_prefix=out_dir_prefix)
-    else:
-        for test in tqdm(test_videos):
-            dir = test.split("/cheetah_videos/")[1]
-            if out_dir_prefix:
-                out_dir = os.path.join(out_dir_prefix, dir, "fte_pw")
-            else:
-                out_dir = os.path.join(root_dir, dir, "fte_pw")
-            video_fpaths = sorted(glob(os.path.join(root_dir, dir,
-                                                    "cam[1-9].mp4")))  # original vids should be in the parent dir
-            app.create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=0.5)
-
+    # run pairwise FTE
+    t0 = time()
+    run(
+        data_dir,
+        start_frame, end_frame,
+        dlc_thresh=0.5,
+        pose_3d_funcs_path=os.path.join(root_dir, "pose_3d_functions.pickle"),
+        init_ekf=True,
+        opt=opt,
+        generate_reprojection_videos=True,
+    )
     t1 = time()
     logger.info(f"Run through all videos took {t1 - t0:.2f}s")
-
-
-if __name__ == "__main__":
-    root_dir = os.path.join("../data")
-    with open(os.path.join("/data/zico/CheetahResults/test_videos_list.pickle"), 'rb') as f:
-        data = cloudpickle.load(f)
-    tests = data["test_dirs"]
-    out_dir_prefix = "/data/zico/CheetahResults/test_initial_estimate"
-    manually_selected_frames = {
-        "2017_08_29/top/phantom/run1_1": (20, 170),
-        "2019_03_03/menya/run": (20, 150),
-        "2019_03_07/menya/run": (70, 160),
-        "2019_03_09/lily/run": (50, 200),
-        "2019_03_05/lily/flick": (100, 200),
-        "2017_08_29/top/zorro/flick1_2": (20, 140),
-        "2017_09_02/bottom/phantom/flick2_1": (5, 100),
-        "2017_12_12/bottom/big_girl/flick2": (30, 100),
-        "2019_03_03/phantom/flick": (270, 460),
-    }
-    bad_videos = ("2017_09_03/bottom/phantom/flick2", "2017_09_02/top/phantom/flick1_1", "2017_12_17/top/zorro/flick1")
-    if platform.python_implementation() == "PyPy":
-        t0 = time()
-        logger.info("Run reconstruction on all videos...")
-        # Initialise the Ipopt solver.
-        opt = SolverFactory("ipopt", executable="/home/zico/lib/ipopt/build/bin/ipopt")
-        # solver options
-        opt.options["print_level"] = 5
-        opt.options["max_iter"] = 1000
-        opt.options["max_cpu_time"] = 10000
-        opt.options["Tol"] = 1e-1
-        opt.options["OF_print_timing_statistics"] = "yes"
-        opt.options["OF_print_frequency_time"] = 10
-        opt.options["OF_hessian_approximation"] = "limited-memory"
-        opt.options["OF_accept_every_trial_step"] = "yes"
-        opt.options["linear_solver"] = "ma86"
-        opt.options["OF_ma86_scaling"] = "none"
-        opt.options["OF_warm_start_init_point"] = "yes"
-
-        for test in tqdm(tests):
-            data_dir = test.split("/cheetah_videos/")[1]
-            # Filter parameters based on past experience.
-            if data_dir in bad_videos:
-                # Skip these videos because of erroneous input data.
-                continue
-            start_frame = 1
-            end_frame = -1
-            if data_dir in set(manually_selected_frames.keys()):
-                start_frame = manually_selected_frames[data_dir][0]
-                end_frame = manually_selected_frames[data_dir][1]
-            try:
-                run(root_dir,
-                    data_dir,
-                    start_frame=start_frame,
-                    end_frame=end_frame,
-                    dlc_thresh=0.5,
-                    opt=opt,
-                    out_dir_prefix=out_dir_prefix)
-            except:
-                run(root_dir,
-                    data_dir,
-                    start_frame=-1,
-                    end_frame=1,
-                    dlc_thresh=0.5,
-                    opt=opt,
-                    out_dir_prefix=out_dir_prefix)
-
-        t1 = time()
-        logger.info(f"Run through all videos took {t1 - t0:.2f}s")
-    elif platform.python_implementation() == "CPython":
-        t0 = time()
-        logger.info("Run 2D reprojections on all videos...")
-        for test in tqdm(tests):
-            data_dir = test.split("/cheetah_videos/")[1]
-            # Filter parameters based on past experience.
-            if data_dir in bad_videos:
-                # Skip these videos because of erroneous input data.
-                continue
-            try:
-                if out_dir_prefix:
-                    out_dir = os.path.join(out_dir_prefix, data_dir, "fte_pw")
-                else:
-                    out_dir = os.path.join(root_dir, data_dir, "fte_pw")
-                video_fpaths = sorted(glob(os.path.join(root_dir, data_dir,
-                                                        "cam[1-9].mp4")))  # original vids should be in the parent dir
-                app.create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=0.5)
-            except:
-                continue
-
-        t1 = time()
-        logger.info(f"Video generation took {t1 - t0:.2f}s")
