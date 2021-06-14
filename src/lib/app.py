@@ -5,7 +5,7 @@ import pickle
 import cv2 as cv
 import numpy as np
 from glob import glob
-from .points import find_corners_images
+from . import points
 from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger
 from .vid import proc_video, VideoProcessorCV
 from .utils import create_board_object_pts, save_points, load_points, \
@@ -23,7 +23,7 @@ from .calib import calibrate_camera, calibrate_fisheye_camera, \
 def extract_corners_from_images(img_dir, out_fpath, board_shape, board_edge_len, window_size=11, remove_unused_images=False):
     print(f'Finding calibration board corners for images in {img_dir}')
     filepaths = sorted([os.path.join(img_dir, fname) for fname in os.listdir(img_dir) if fname.endswith('.jpg') or fname.endswith('.png')])
-    points, fpaths, cam_res = find_corners_images(filepaths, board_shape, window_size=window_size)
+    points, fpaths, cam_res = points.find_corners_images(filepaths, board_shape, window_size=window_size)
     saved_fnames = [os.path.basename(f) for f in fpaths]
     saved_points = points.tolist()
     if remove_unused_images:

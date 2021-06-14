@@ -4,7 +4,7 @@ import numpy as np
 from typing import Tuple, Union
 from nptyping import Array
 from scipy.optimize import least_squares
-from .points import common_image_points
+from . import points
 from .utils import create_board_object_pts, save_scene, load_camera, load_points, load_manual_points
 from .misc import redescending_loss, global_positions, rotation_matrix_from_vectors, rot_z
 
@@ -159,7 +159,7 @@ def calibrate_pairwise_extrinsics(calib_func, img_pts_arr, fnames_arr, k_arr, d_
         print(f'{cam_a} & {cam_b}', end='\t'*2)
         i, j = cams.index(cam_a), cams.index(cam_b)
         # Extract common points between cameras into img_pts 1 & 2
-        img_pts_1, img_pts_2, _ = common_image_points(img_pts_arr[i], fnames_arr[i], img_pts_arr[j], fnames_arr[j])
+        img_pts_1, img_pts_2, _ = points.common_image_points(img_pts_arr[i], fnames_arr[i], img_pts_arr[j], fnames_arr[j])
         print(len(img_pts_1), end='\t'*2)
         if not len(img_pts_1):
             r_arr[j] = np.array(dummy_scene_data['r'][cam_b-1])
@@ -234,7 +234,7 @@ def adjust_extrinsics_manual_points(calib_func, img_pts_arr, cam_idxs_to_correct
             cam_b_params += [r_arr[b] @ R.T, t_arr[b] - r_arr[b] @ t] if b in cam_idxs_to_correct else [r_arr[b], t_arr[b]]
 
             skew_3d_pts = triangulate_func(
-                np.array(img_pts_arr[:, a]), np.array(img_pts_arr[:, b]), 
+                np.array(img_pts_arr[:, a]), np.array(img_pts_arr[:, b]),
                 *cam_a_params, *cam_b_params
             )
 
@@ -334,7 +334,7 @@ def _calibrate_pairwise_extrinsics(
             board_edge_len = board_edge_len_1
         else:
             np.testing.assert_equal(board_edge_len, board_edge_len_1) # handles nan case
-            
+
     # Load the dummy scene
     with open(dummy_scene_fpath, 'rb') as f:
         dummy_scene_data = json.load(f)
@@ -348,7 +348,7 @@ def _calibrate_pairwise_extrinsics(
         'r': dummy_rs,
         't': dummy_ts,
     }
-    
+
     # determine cam pairs to be used in calibration
     cams = np.array([int(list(filter(str.isdigit, fpath))[-1]) for fpath in points_fpaths])
     cam_pairs = None
@@ -373,10 +373,10 @@ def _calibrate_pairwise_extrinsics(
 
     if incomplete_cams:
         from os.path import join, dirname
-        
+
         incomplete_fpath = out_fpath.replace('.json', '_before_corrections.json')
         save_scene(incomplete_fpath, k_arr, d_arr, r_arr, t_arr, cam_res)
-        
+
         if manual_points_fpath is None:
             manual_points_fpath = join(dirname(points_fpaths[0]), 'manual_points.json')
 
@@ -387,7 +387,7 @@ def _calibrate_pairwise_extrinsics(
         except FileNotFoundError as e:
             print(f'\nPlease rerun this calibration after obtaining manually-labelled points')
             raise FileNotFoundError(e)
-            
+
         cam_idxs_to_correct = list(range(cams.index(incomplete_cams[0]),len(cams)))
         r_arr, t_arr = adjust_extrinsics_manual_points(calib_func, img_pts_arr, cam_idxs_to_correct, k_arr, d_arr, r_arr, t_arr)
 

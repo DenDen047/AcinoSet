@@ -15,7 +15,7 @@ from pyomo.opt import SolverFactory
 from lib import misc, utils, app
 from lib.calib import triangulate_points_fisheye, project_points_fisheye
 import logging
-from all_optimizations import ekf
+import all_optimizations as opts
 
 # Create a module logger with the name of this file.
 logger = logging.getLogger(__name__)
@@ -482,7 +482,7 @@ def run(root_dir: str,
     # estimate initial points
     logger.info("Estimate the initial trajectory")
     if init_ekf:
-        ekf(os.path.join(os.path.dirname(out_dir)), points_2d_df, (K_arr, D_arr, R_arr, t_arr, cam_res, n_cams, fps),
+        opts.ekf(os.path.join(os.path.dirname(out_dir)), points_2d_df, (K_arr, D_arr, R_arr, t_arr, cam_res, n_cams, fps),
             start_frame, end_frame, dlc_thresh, scene_fpath)
 
     # Use the cheetahs spine to estimate the initial trajectory with a 3rd degree spline.
