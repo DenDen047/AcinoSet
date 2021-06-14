@@ -17,6 +17,7 @@ from lib.calib import triangulate_points_fisheye, project_points_fisheye
 import logging
 import all_optimizations as opts
 
+
 # Create a module logger with the name of this file.
 logger = logging.getLogger(__name__)
 
@@ -236,17 +237,19 @@ def create_pose_functions(data_dir: str):
         cloudpickle.dump((pose_to_3d, pos_funcs), f)
 
 
-def run(root_dir: str,
-        data_path: str,
-        start_frame: int,
-        end_frame: int,
-        dlc_thresh: float,
-        loss="redescending",
-        init_ekf=False,
-        opt=None,
-        out_dir_prefix: str = None,
-        generate_reprojection_videos: bool = False,
-        export_measurements: bool = False):
+def run(
+    root_dir: str,
+    data_path: str,
+    start_frame: int,
+    end_frame: int,
+    dlc_thresh: float,
+    loss="redescending",
+    init_ekf=False,
+    opt=None,
+    out_dir_prefix: str = None,
+    generate_reprojection_videos: bool = False,
+    export_measurements: bool = False
+):
     logger.info("Prepare data - Start")
 
     t0 = time()
@@ -404,69 +407,24 @@ def run(root_dir: str,
         dtype=float)
     # R_pw = np.array([R, [5.13, 3.06, 2.99, 4.07, 5.53, 4.67, 6.05, 5.6, 5.43, 5.39, 6.34, 6.53, 6.14, 6.54, 5.35, 5.33, 6.24, 6.91, 5.8, 6.6],
     # [4.3, 4.72, 4.9, 3.8, 4.4, 5.43, 5.22, 7.29, 5.39, 5.72, 6.01, 6.83, 6.32, 6.27, 5.81, 6.19, 6.22, 7.15, 6.98, 6.5]], dtype=float)
-    R_pw = np.array([
-        R,
+    R_pw = np.array(
         [
-            2.71, 3.06, 2.99, 4.07, 5.53, 4.67, 6.05, 5.6, 5.01, 5.11, 5.24, 5.18, 5.28, 5.5, 4.7, 4.7, 5.21, 5.1, 5.27,
-            5.75
+            R,
+            [2.71, 3.06, 2.99, 4.07, 5.53, 4.67, 6.05, 5.6, 5.01, 5.11, 5.24, 5.18, 5.28, 5.5, 4.7, 4.7, 5.21, 5.1, 5.27, 5.75],
+            [2.8, 3.24, 3.42, 3.8, 4.4, 5.43, 5.22, 7.29, 8.19, 6.5, 5.9, 8.83, 6.52, 6.22, 6.8, 6.12, 5.37, 7.83, 6.44, 6.1]
         ],
-        [
-            2.8, 3.24, 3.42, 3.8, 4.4, 5.43, 5.22, 7.29, 8.19, 6.5, 5.9, 8.83, 6.52, 6.22, 6.8, 6.12, 5.37, 7.83, 6.44,
-            6.1
-        ]
-    ],
-                    dtype=float)
+        dtype=float
+    )
     R_pw[0, :] = 5.0
     R_pw[1, :] = 10.0
     R_pw[2, :] = 15.0
 
     Q = [  # model parameters variance
-        4,
-        7,
-        5,  # x, y, z
-        13,
-        32,
-        0,
-        10,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,  #  phi_1, ... , phi_14
-        9,
-        18,
-        43,
-        53,
-        90,
-        118,
-        247,
-        186,
-        194,
-        164,
-        295,
-        243,
-        334,
-        149,  # theta_1, ... , theta_n
-        26,
-        12,
-        0,
-        34,
-        43,
-        51,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,  # psi_1, ... , psi_n
-        #     ?, ?, ? # lure's x, y, z variance
+        4, 7, 5,  # x, y, z
+        13, 32, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    #  phi_1, ... , phi_14
+        9, 18, 43, 53, 90, 118, 247, 186, 194, 164, 295, 243, 334, 149, # theta_1, ... , theta_n
+        26, 12, 0, 34, 43, 51, 0, 0, 0, 0, 0, 0, 0, 0,  # psi_1, ... , psi_n
+        # ?, ?, ? # lure's x, y, z variance
     ]
     Q = np.array(Q, dtype=float)**2
 
@@ -482,8 +440,12 @@ def run(root_dir: str,
     # estimate initial points
     logger.info("Estimate the initial trajectory")
     if init_ekf:
-        opts.ekf(os.path.join(os.path.dirname(out_dir)), points_2d_df, (K_arr, D_arr, R_arr, t_arr, cam_res, n_cams, fps),
-            start_frame, end_frame, dlc_thresh, scene_fpath)
+        opts.ekf(
+            os.path.join(os.path.dirname(out_dir)),
+            points_2d_df,
+            (K_arr, D_arr, R_arr, t_arr, cam_res, n_cams, fps),
+            start_frame, end_frame, dlc_thresh, scene_fpath
+        )
 
     # Use the cheetahs spine to estimate the initial trajectory with a 3rd degree spline.
     frame_est = np.arange(end_frame)
@@ -878,8 +840,7 @@ def run(root_dir: str,
 
     # Create 2D reprojection videos.
     if generate_reprojection_videos:
-        video_fpaths = sorted(glob(os.path.join(root_dir, data_path,
-                                                "cam[1-9].mp4")))  # original vids should be in the parent dir
+        video_fpaths = sorted(glob(os.path.join(root_dir, data_path, "cam[1-9].mp4")))  # original vids should be in the parent dir
         app.create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
 
     logger.info("Done")
@@ -937,8 +898,8 @@ def run_subset_tests(out_dir_prefix: str, loss: str):
 
 
 if __name__ == "__main__":
-    root_dir = os.path.join("/", "data", "dlc", "to_analyse", "cheetah_videos")
-    with open(os.path.join("/data/zico/CheetahResults/test_videos_list.pickle.pickle"), 'rb') as f:
+    root_dir = os.path.join("../data")
+    with open(os.path.join("/data/zico/CheetahResults/test_videos_list.pickle"), 'rb') as f:
         data = cloudpickle.load(f)
     tests = data["test_dirs"]
     out_dir_prefix = "/data/zico/CheetahResults/test_initial_estimate"
