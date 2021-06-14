@@ -239,7 +239,7 @@ def create_pose_functions(pose_3d_funcs_path: str) -> None:
 
 
 def run(
-    data_path: str,
+    data_dir: str,
     start_frame: int,
     end_frame: int,
     dlc_thresh: float,
@@ -253,7 +253,7 @@ def run(
     logger.info("Prepare data - Start")
     t0 = time()
 
-    out_dir = os.path.join(data_path, "fte_pw")
+    out_dir = os.path.join(data_dir, "fte_pw")
     assert os.path.exists(data_dir)
     dlc_dir = os.path.join(data_dir, "dlc_pw")
     assert os.path.exists(dlc_dir)
@@ -279,7 +279,7 @@ def run(
 
     # load DLC data
     dlc_points_fpaths = sorted(glob(os.path.join(dlc_dir, "*.h5")))
-    assert n_cams == len(dlc_points_fpaths), f"# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json"
+    assert n_cams == len(dlc_points_fpaths), f"The number of dlc {len(dlc_points_fpaths)} h5-files != {n_cams} in {scene_fpath}"
 
     # load measurement dataframe (pixels, likelihood)
     points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
@@ -835,7 +835,7 @@ def run(
 
     # Create 2D reprojection videos.
     if generate_reprojection_videos:
-        video_fpaths = sorted(glob(os.path.join(data_path, "cam[1-9].mp4")))  # original vids should be in the parent dir
+        video_fpaths = sorted(glob(os.path.join(data_dir, "cam[1-9].mp4")))  # original vids should be in the parent dir
         app.create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
 
     logger.info("The pairwise FTE has been DONE!")
@@ -844,7 +844,7 @@ def run(
 if __name__ == "__main__":
     # variables
     root_dir = os.path.join("../data")
-    data_dir = os.path.join(root_dir, '2017_12_16/top/phantom/flick1')
+    data_dir = os.path.join(root_dir, '2019_03_07/menya/run')
     start_frame = 1
     end_frame = -1
 
