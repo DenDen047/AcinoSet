@@ -1,5 +1,6 @@
 import os
 import glob
+import pickle
 from typing import Dict
 from argparse import ArgumentParser
 
@@ -9,10 +10,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import cycler
 
-from py_utils import data_ops
 from lib import misc
 
+
 plt.rcParams['axes.grid'] = True
+
 
 def _calculate_delta_acc(acc: np.ndarray) -> np.ndarray:
     return np.array([(acc[n, :] - acc[n-1, :]) for n in range(1, len(acc))])
@@ -184,7 +186,8 @@ def run_subset_tests(root_dir: str):
     fte_files = glob.glob(os.path.join(root_dir, "**/fte.pickle"), recursive=True)
     delta_acc_list = []
     for fte_file in fte_files:
-        data = data_ops.load_pickle(fte_file)
+        with open(fte_file, 'rb') as f:
+            data = pickle.load(f)
         eval_dir = os.path.join(os.path.dirname(fte_file), "evaluation")
         os.makedirs(eval_dir, exist_ok=True)
 
@@ -211,7 +214,8 @@ if __name__ == "__main__":
         assert os.path.isfile(fte_file), "fte.pickle file not found"
         if str(args.type) == "both" or str(args.type).lower() in fte_file.lower():
             print(f"{fte_file}", end=" ")
-            data = data_ops.load_pickle(fte_file)
+            with open(fte_file, 'rb') as f:
+                data = pickle.load(f)
 
             eval_dir = os.path.join(os.path.dirname(fte_file), "evaluation")
             os.makedirs(eval_dir, exist_ok=True)
