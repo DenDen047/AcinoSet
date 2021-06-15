@@ -384,7 +384,7 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
     for i in range(plt_shape[0]):
         for j in range(plt_shape[1]):
             k = 2*i+j
-            ax = axs[i,j] if i > 1 else axs[j]
+            ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
             ax.set_title(titles[k])
             ax.plot(x[:, idxs[k]])
             lgnd = lbls[k]
