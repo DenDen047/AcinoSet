@@ -104,16 +104,16 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     _Q = [   # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
-        # 32, 18, 12, # neck
-        # 43,         # front torso
-        # 10, 53, 34, # back torso
-        # 90, 43,     # tail_base
-        # 118, 51,    # tail_mid
-        # 247, 186,   # l_shoulder, l_front_knee
-        # 194, 164,   # r_shoulder, r_front_knee
-        # 295, 243,   # l_hip, l_back_knee
-        # 334, 149,   # r_hip, r_back_knee
-        # 4, 7, 5,    # lure position in inertial
+        32, 18, 12, # neck
+        43,         # front torso
+        10, 53, 34, # back torso
+        90, 43,     # tail_base
+        118, 51,    # tail_mid
+        247, 186,   # l_shoulder, l_front_knee
+        194, 164,   # r_shoulder, r_front_knee
+        295, 243,   # l_hip, l_back_knee
+        334, 149,   # r_hip, r_back_knee
+        4, 7, 5,    # lure position in inertial
     ]
     Q = np.array(_Q, dtype=np.float64)**2
 
@@ -319,8 +319,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def r_back_knee_theta_13(m,n):
         return abs(m.x[n,idx['theta_13']] - np.pi/2) <= np.pi / 2
 
-    m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
-    m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
+    # m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
+    # m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
     # m.neck_phi_1           = pyo.Constraint(m.N, rule=neck_phi_1)
     # m.neck_theta_1         = pyo.Constraint(m.N, rule=neck_theta_1)
     # m.neck_psi_1           = pyo.Constraint(m.N, rule=neck_psi_1)
@@ -924,7 +924,7 @@ if __name__ == '__main__':
     # ekf(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     # plt.close('all')
     print('========== FTE ==========\n')
-    _ = fte(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    _ = fte(DATA_DIR, points_2d_df, 'default', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
 
     if args.plot:
