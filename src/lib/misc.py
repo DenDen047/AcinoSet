@@ -49,7 +49,7 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
         states = [
             'x_0', 'y_0', 'z_0',         # head position in inertial
             'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
-            'phi_1', 'theta_1', 'psi_1', # neck
+            'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
             'theta_2',                   # front torso
             'phi_3', 'theta_3', 'psi_3', # back torso
             'theta_4', 'psi_4',          # tail_base
@@ -113,7 +113,7 @@ def get_3d_marker_coords(x, mode: str = 'default'):
         p_r_eye         = p_head         + R0_I  @ func([0, -0.03, 0])
         p_nose          = p_head         + R0_I  @ func([0.055, 0, -0.055])
 
-        p_neck_base     = p_head         + R1_I  @ func([-0.28, 0, 0])
+        p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
         p_spine         = p_neck_base    + R2_I  @ func([-0.37, 0, 0])
 
         p_tail_base     = p_spine        + R3_I  @ func([-0.37, 0, 0])
