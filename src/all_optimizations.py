@@ -6,7 +6,7 @@ import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
-from typing import Dict
+from typing import Dict, List
 from glob import glob
 from time import time
 from pprint import pprint
@@ -482,7 +482,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     def h_function(x: np.ndarray, k: np.ndarray, d: np.ndarray, r: np.ndarray, t: np.ndarray):
         """Returns a numpy array of the 2D marker pixel coordinates (shape Nx2) for a given state vector x and camera parameters k, d, r, t.
         """
-        coords_3d = misc.get_3d_marker_coords(x, mode=mode)
+        coords_3d = misc.get_3d_marker_coords(x, mode=marker_mode)
         coords_2d = project_points_fisheye(coords_3d, k, d, r, t) # Project the 3D positions to 2D
         return coords_2d
 
@@ -856,8 +856,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    # print('========== DLC ==========\n')
-    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    print('========== DLC ==========\n')
+    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -874,14 +874,14 @@ if __name__ == '__main__':
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
         target_markers = misc.get_markers()
+        key_markers = ['nose', 'r_eye', 'l_eye']
 
         def frame_condition(i: int, n_markers: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
             num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
             return num_marker(i) == n_markers
 
-        key_markers = ['nose', 'r_eye', 'l_eye', 'neck_base']
-        def frame_condition_with_key_markers(i: int, n_min_cam: int, n_markers: int) -> bool:
+        def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int, n_markers: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
             markers = filtered_points_2d_df.query(
                 f'frame == {i} and ({markers_condition})'
@@ -898,10 +898,12 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = filtered_points_2d_df['frame'].max() + 1
         for i in range(max_idx):
+            # if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
             if frame_condition(i, len(target_markers)):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1):
+            # if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
             if frame_condition(i, len(target_markers)):
                 end_frame = i
                 break
@@ -914,15 +916,15 @@ if __name__ == '__main__':
         filtered_points_2d_df = points_2d_df[points_2d_df['likelihood'] > args.dlc_thresh]    # ignore points with low likelihood
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    # print('========== Triangulation ==========\n')
-    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
-    # plt.close('all')
-    # print('========== SBA ==========\n')
-    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
-    # print('========== EKF ==========\n')
-    # ekf(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    # plt.close('all')
+    print('========== Triangulation ==========\n')
+    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    plt.close('all')
+    print('========== SBA ==========\n')
+    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    plt.close('all')
+    print('========== EKF ==========\n')
+    ekf(DATA_DIR, points_2d_df, 'default', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    plt.close('all')
     print('========== FTE ==========\n')
     _ = fte(DATA_DIR, points_2d_df, 'default', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
