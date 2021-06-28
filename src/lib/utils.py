@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from glob import glob
 from errno import ENOENT
-from typing import Tuple
+from typing import Tuple, List
 from nptyping import Array
 from scipy.io import savemat
 from datetime import datetime
@@ -175,7 +175,7 @@ def save_optimised_cheetah(positions, out_fpath, extra_data=None, for_matlab=Tru
         pass
 
 
-def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project_func, start_frame, save_as_csv=True, out_fname=None):
+def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project_func, start_frame, save_as_csv=True, out_fname=None) -> List:
     assert os.path.dirname(os.path.dirname(scene_fpath)) in out_dir, 'scene_fpath does not belong to the same parent folder as out_dir'
 
     video_fpaths = sorted(glob(os.path.join(out_dir, 'cam[1-9].mp4'))) # check current dir for videos
@@ -194,6 +194,7 @@ def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project
 
         out_fname = os.path.basename(out_dir) if out_fname is None else out_fname
 
+        result_dfs = []
         for i in range(len(video_fpaths)):
             projections = project_func(positions_3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
             out_of_range_indices = np.where((projections > cam_res) | (projections < [0]*2))[0]
@@ -206,15 +207,18 @@ def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project
             fpath = os.path.join(out_dir, cam_name + '_' + out_fname + '.h5')
 
             df = pd.DataFrame(data.reshape((n_frames, -1)), columns=pdindex, index=range(start_frame, start_frame+n_frames))
+            df.to_hdf(fpath, f'{out_fname}_df', format='table', mode='w')
             if save_as_csv:
                 df.to_csv(os.path.splitext(fpath)[0] + '.csv')
-            df.to_hdf(fpath, f'{out_fname}_df', format='table', mode='w')
+
+            result_dfs.append(df)
 
         fpath = fpath.replace(cam_name, 'cam*')
         print('Saved', fpath)
         if save_as_csv:
             print('Saved', os.path.splitext(fpath)[0] + '.csv')
         print()
+        return result_dfs
     else:
         print('Could not save 3D cheetah to 2D - No videos were found in', out_dir, 'or', os.path.dirname(out_dir))
 

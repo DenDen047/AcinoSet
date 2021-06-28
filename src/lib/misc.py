@@ -13,7 +13,7 @@ def get_markers(mode: str = 'default') -> List[str]:
             'l_shoulder', 'l_front_knee', 'l_front_ankle', # 'l_front_paw',
             'r_hip', 'r_back_knee', 'r_back_ankle', # 'r_back_paw',
             'l_hip', 'l_back_knee', 'l_back_ankle', # 'l_back_paw',
-            # 'lure'
+            'lure'
         ]   # excludes paws & lure for now!
     elif mode == 'head':
         s = [
@@ -58,7 +58,7 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'theta_8', 'theta_9',        # r_shoulder, r_front_knee
             'theta_10', 'theta_11',      # l_hip, l_back_knee
             'theta_12', 'theta_13',      # r_hip, r_back_knee
-            # 'x_l', 'y_l', 'z_l'          # lure position in inertial
+            'x_l', 'y_l', 'z_l'          # lure position in inertial
         ] # exludes paws & lure for now!
     elif mode == 'head':
         states = [
@@ -67,6 +67,18 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
         ]
 
     return dict(zip(states, range(len(states))))
+
+
+def get_gaze_target(h_pos, h_pose, r=3):
+    func = sp.Matrix if isinstance(h_pos[0], sp.Expr) else np.array
+
+    p_head = func(h_pos)
+    psi, phi, theta = h_pose
+    RI_0  = rot_z(psi) @ rot_x(phi) @ rot_y(theta)
+    R0_I  = RI_0.T
+    gaze_target = p_head + R0_I @ func([r, 0, 0])
+
+    return gaze_target
 
 
 def get_3d_marker_coords(x, mode: str = 'default'):
@@ -136,7 +148,7 @@ def get_3d_marker_coords(x, mode: str = 'default'):
         p_r_back_knee   = p_r_hip        + R12_I @ func([0, 0, -0.32])
         p_r_back_ankle  = p_r_back_knee  + R13_I @ func([0, 0, -0.25])
 
-        # p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
+        p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
 
         return func([
             p_nose.T, p_r_eye.T, p_l_eye.T,
@@ -146,7 +158,7 @@ def get_3d_marker_coords(x, mode: str = 'default'):
             p_l_shoulder.T, p_l_front_knee.T, p_l_front_ankle.T,
             p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T,
             p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T,
-            # p_lure.T
+            p_lure.T,
         ])
     elif mode == 'head':
         # rotations

@@ -55,18 +55,6 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     t0 = time()
 
-    # ========= LAMBDIFY SYMBOLIC FUNCTIONS ========
-    func_map = {
-        'sin': pyo.sin,
-        'cos': pyo.cos,
-        'ImmutableDenseMatrix': np.array
-    }
-    # pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])   # this is not used
-    pos_funcs  = []
-    for i in range(positions.shape[0]):
-        lamb = sp.lambdify(sym_list, positions[i,:], modules=[func_map])
-        pos_funcs.append(lamb)
-
     # ========= PROJECTION FUNCTIONS ========
     def pt3d_to_2d(x, y, z, K, D, R, t):
         x_2d = x*R[0,0] + y*R[0,1] + z*R[0,2] + t.flatten()[0]
@@ -104,7 +92,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     _Q = [  # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
-        32, 18, 12, # neck
+        12, 32, 18, 12, # neck
         43,         # front torso
         10, 53, 34, # back torso
         90, 43,     # tail_base
@@ -151,11 +139,11 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ===== SETS =====
     N  = end_frame - start_frame + 1    # number of timesteps in trajectory
-    P  = len(sym_list)         # number of pose parameters
-    L  = len(markers)          # number of dlc labels per frame
-    C  = n_cams                # number of cameras
-    D2 = 2                     # dimensionality of measurements (image points)
-    D3 = 3                     # dimensionality of measurements (3d points)
+    P  = len(sym_list)  # number of pose parameters
+    L  = len(markers)   # number of dlc labels per frame
+    C  = n_cams         # number of cameras
+    D2 = 2  # dimensionality of measurements (image points)
+    D3 = 3  # dimensionality of measurements (3d points)
 
     m.Ts = 1.0 / fps # timestep
     m.N  = pyo.RangeSet(N)
@@ -205,6 +193,18 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     m.poses       = pyo.Var(m.N, m.L, m.D3)
     m.slack_model = pyo.Var(m.N, m.P)
     m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0)
+
+    # ========= LAMBDIFY SYMBOLIC FUNCTIONS ========
+    func_map = {
+        'sin': pyo.sin,
+        'cos': pyo.cos,
+        'ImmutableDenseMatrix': np.array
+    }
+    # pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])   # this is not used
+    pos_funcs  = []
+    for i in range(positions.shape[0]):
+        lamb = sp.lambdify(sym_list, positions[i,:], modules=[func_map])
+        pos_funcs.append(lamb)
 
     # ===== VARIABLES INITIALIZATION =====
 
@@ -457,6 +457,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     # pose
     idx = misc.get_pose_params(mode=marker_mode)    # define the indices for the states
     n_pose_params = len(idx)
+    n_angular_pose_params = len([k for k in idx.keys() if 'phi' in k or 'theta' in k or 'psi' in k])
     n_states = 3 * n_pose_params
     vel_idx = n_states // 3
     acc_idx = n_states * 2 // 3
@@ -568,29 +569,32 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     # INITIAL STATE COVARIANCE P - how much do we trust the initial states
     # position
-    p_lin_pos = np.ones(3)*3**2     # Know initial position within 4m
-    p_ang_pos = np.ones(n_pose_params-3)*(np.pi/4)**2 # Know initial angles within 60 degrees, heading may need to change
-    # p_lure_pos = p_lin_pos
+    p_lin_pos = np.ones(3) * 3**2     # Know initial position within 4
+    neck_len = np.ones(1) * (-0.28)
+    p_ang_pos = np.ones(n_angular_pose_params) * (np.pi/4)**2   # Know initial angles within 60 degrees, heading may need to change
+    p_lure_pos = p_lin_pos
     # velocity
-    p_lin_vel = np.ones(3)*5**2     # Know this within 2.5m/s and it's a uniform random variable
-    p_ang_vel = np.ones(n_pose_params-3)*3**2
-    # p_lure_vel = p_lin_vel
+    p_lin_vel = np.ones(3) * 5**2     # Know this within 2.5m/s and it's a uniform random variable
+    neck_vel = np.ones(1) * 0.0
+    p_ang_vel = np.ones(n_angular_pose_params) * 3**2
+    p_lure_vel = p_lin_vel
     # acceleration
-    p_lin_acc = np.ones(3)*3**2
-    p_ang_acc = np.ones(n_pose_params-3)*3**2
+    p_lin_acc = np.ones(3) * 3**2
+    neck_acc = np.ones(1) * 0.0
+    p_ang_acc = np.ones(n_angular_pose_params) * 3**2
     p_ang_acc[10:] = 5**2
-    # p_lure_acc = p_lin_acc
+    p_lure_acc = p_lin_acc
 
     P = np.diag(np.concatenate([
-        p_lin_pos, p_ang_pos, # p_lure_pos,
-        p_lin_vel, p_ang_vel, # p_lure_vel,
-        p_lin_acc, p_ang_acc, # p_lure_acc
+        p_lin_pos, p_ang_pos[:3], neck_len, p_ang_pos[3:], p_lure_pos,
+        p_lin_vel, p_ang_vel[:3], neck_vel, p_ang_vel[3:], p_lure_vel,
+        p_lin_acc, p_ang_acc[:3], neck_acc, p_ang_acc[3:], p_lure_acc,
     ]))
 
     # PROCESS COVARIANCE Q - how 'noisy' the constant acceleration model is
     qb_list = [
         5.0, 5.0, 5.0, 10.0, 10.0, 10.0,    # head x, y, z, phi, theta, psi in inertial
-        5.0, 25.0, 5.0,   # neck phi, theta, psi
+        5.0, 5.0, 25.0, 5.0,   # neck length, phi, theta, psi
         50.0,             # front-torso theta
         5.0, 50.0, 25.0,  # back torso phi, theta, psi
         100.0, 30.0,      # tail base theta, psi
@@ -599,7 +603,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         350.0, 200.0,     # r_shoulder theta, r_front_knee theta
         450.0, 400.0,     # l_hip theta, l_back_knee theta
         450.0, 400.0,     # r_hip theta, r_back_knee theta
-        5.0, 5.0, 5.0,  # lure x, y, z in inertial - same as head
+        5.0, 5.0, 5.0,    # lure x, y, z in inertial - same as head
     ]
     qb_list = qb_list[:n_pose_params]
     # qb_list += qb_list[0:3]
@@ -856,8 +860,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -916,12 +920,12 @@ if __name__ == '__main__':
         filtered_points_2d_df = points_2d_df[points_2d_df['likelihood'] > args.dlc_thresh]    # ignore points with low likelihood
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
-    plt.close('all')
-    print('========== SBA ==========\n')
-    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== Triangulation ==========\n')
+    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    # plt.close('all')
+    # print('========== SBA ==========\n')
+    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
     print('========== EKF ==========\n')
     ekf(DATA_DIR, points_2d_df, 'default', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     plt.close('all')
@@ -932,7 +936,7 @@ if __name__ == '__main__':
     if args.plot:
         print('Plotting results...')
         data_fpaths = [
-            os.path.join(DATA_DIR, 'tri', 'tri.pickle'), # plot is too busy when tri is included
+            os.path.join(DATA_DIR, 'tri', 'tri.pickle'),    # plot is too busy when tri is included
             os.path.join(DATA_DIR, 'sba', 'sba.pickle'),
             os.path.join(DATA_DIR, 'ekf', 'ekf.pickle'),
             os.path.join(DATA_DIR, 'fte', 'fte.pickle')

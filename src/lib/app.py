@@ -5,7 +5,7 @@ import cv2 as cv
 import numpy as np
 from glob import glob
 from .points import find_corners_images, EOM_curve_fit
-from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger
+from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target
 from .vid import proc_video, VideoProcessorCV
 from .utils import create_board_object_pts, save_points, load_points, \
     save_camera, load_camera, load_manual_points, load_dlc_points_as_df, \
@@ -252,16 +252,24 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_v
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
         create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
 
+
 def save_fte(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
-    positions = [get_3d_marker_coords(state, mode) for state in states['x']]
+    marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
+    head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
+    gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['x']]) # (timestep, xyz)
+
+    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+    positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     save_optimised_cheetah(positions, out_fpath, extra_data=dict(**states, start_frame=start_frame))
-    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, get_markers(mode), project_points_fisheye, start_frame)
+    bodyparts = get_markers(mode) + ['coe', 'gaze_target']
+    points_on_each_vid = save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
+        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh, directions=True)
 
 
 # ==========  STDOUT LOGGING  ==========
@@ -299,7 +307,16 @@ def get_vid_info(path_dir, vid_extension='mp4'):
     return (vid.width(), vid.height()), vid.fps(), vid.frame_count(), vid.codec()
 
 
-def create_labeled_videos(video_fpaths, videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None, draw_skeleton=False, pcutoff=0.5, dotsize=6, colormap='jet', skeleton_color='white', lure: bool = False):
+def create_labeled_videos(
+    video_fpaths,
+    videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None,
+    draw_skeleton=False,
+    pcutoff=0.5, dotsize=6,
+    colormap='jet', skeleton_color='white',
+    lure: bool = False,
+    coe: bool = False,
+    directions: bool = False
+):
     from functools import partial
     from multiprocessing import Pool
 
@@ -309,15 +326,32 @@ def create_labeled_videos(video_fpaths, videotype='mp4', codec='mp4v', outputfra
 
     print('Saving labeled videos...')
 
+    # setting for drawing directions
+    if directions:
+        lure = True
+        coe = True  # center of eyes
+
+    # get drawn body parts
     bodyparts = get_markers()
     if lure and not 'lure' in bodyparts:
         bodyparts.append('lure')
+    if coe and not 'coe' in bodyparts:
+        bodyparts.append('coe')
+
+    # get connections for skelton (and directions)
     bodyparts2connect = get_skeleton() if draw_skeleton else None
+    if directions:
+        bodyparts2connect.append(['coe', 'lure'])
+        bodyparts2connect.append(['coe', 'gaze_target'])
+    bodyparts2connect.append(['nose', 'tail2'])
 
     if out_dir is None:
         out_dir = os.path.relpath(os.path.dirname(video_fpaths[0]), os.getcwd())
 
-    func = partial(proc_video, out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color)
+    func = partial(
+        proc_video,
+        out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color
+    )
 
     with Pool(min(os.cpu_count(), len(video_fpaths))) as pool:
         pool.map(func, video_fpaths)
