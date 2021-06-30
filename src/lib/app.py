@@ -241,16 +241,28 @@ def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_vide
 
 
 def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
-    positions = [get_3d_marker_coords(state, mode) for state in states['x']]
-    smoothed_positions = [get_3d_marker_coords(state, mode) for state in states['smoothed_x']]
+    marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
+    head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
+    gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['x']]) # (timestep, xyz)
+    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+    positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
+
+    marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['smoothed_x']])
+    head_pos = np.array([state[0:3] for state in states['smoothed_x']])
+    gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['smoothed_x']])
+    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+    smoothed_positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
     out_fpath = os.path.join(out_dir, 'ekf.pickle')
     save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
-    save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, get_markers(mode), project_points_fisheye, start_frame)
+    bodyparts = get_markers(mode) + ['coe', 'gaze_target']
+    points_on_each_vid = save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
+        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh, directions=True)
 
 
 def save_fte(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
@@ -343,7 +355,6 @@ def create_labeled_videos(
     if directions:
         bodyparts2connect.append(['coe', 'lure'])
         bodyparts2connect.append(['coe', 'gaze_target'])
-    bodyparts2connect.append(['nose', 'tail2'])
 
     if out_dir is None:
         out_dir = os.path.relpath(os.path.dirname(video_fpaths[0]), os.getcwd())

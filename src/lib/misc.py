@@ -59,7 +59,7 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'theta_10', 'theta_11',      # l_hip, l_back_knee
             'theta_12', 'theta_13',      # r_hip, r_back_knee
             'x_l', 'y_l', 'z_l'          # lure position in inertial
-        ] # exludes paws & lure for now!
+        ]   # exludes paws & lure for now!
     elif mode == 'head':
         states = [
             'x_0', 'y_0', 'z_0',         # head position in inertial
