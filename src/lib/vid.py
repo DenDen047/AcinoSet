@@ -190,26 +190,24 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
     colors = (C[:, :3] * 255).astype(np.uint8).tolist()
 
     with np.errstate(invalid='ignore'):
-        for frame_idx in trange(clip.frame_count(), unit=' f'):
+        for frame_idx in trange(clip.frame_count()-1, unit=' f'):
             image = clip.load_frame()
-            try:
-                idx = df.index.get_loc(frame_idx)
-                # Draw the skeleton for specific bodyparts to be connected
-                if draw_skeleton:
-                    for bpt1, bpt2 in bpts2connect:
-                        if not np.isnan(df_xy[:, [bpt1, bpt2], idx]).any():
-                            if ((df_likelihood[[bpt1, bpt2], idx] > pcutoff).all() or np.isnan(df_likelihood[[bpt1, bpt2], idx]).all()):
-                                cv.line(image,
-                                        tuple(df_xy[:, bpt1, idx].astype(np.uint16)),
-                                        tuple(df_xy[:, bpt2, idx].astype(np.uint16)),
-                                        color_for_skeleton, 2, cv.LINE_AA)
 
-                for ind, num_bp in bpts2color:
-                    if not np.isnan(df_xy[:, ind, idx]).any():
-                        if (df_likelihood[ind, idx] > pcutoff) or np.isnan(df_likelihood[ind, idx]):
-                            cv.circle(image, tuple(df_xy[:, ind, idx].astype(np.uint16)), dotsize, colors[num_bp], cv.FILLED)
-            except KeyError:
-                pass # do nothing to image if frame_idx is not in df
+            idx = df.index.get_loc(frame_idx)
+            # Draw the skeleton for specific bodyparts to be connected
+            if draw_skeleton:
+                for bpt1, bpt2 in bpts2connect:
+                    if not np.isnan(df_xy[:, [bpt1, bpt2], idx]).any():
+                        if ((df_likelihood[[bpt1, bpt2], idx] > pcutoff).all() or np.isnan(df_likelihood[[bpt1, bpt2], idx]).all()):
+                            cv.line(image,
+                                    tuple(df_xy[:, bpt1, idx].astype(np.uint16)),
+                                    tuple(df_xy[:, bpt2, idx].astype(np.uint16)),
+                                    color_for_skeleton, 2, cv.LINE_AA)
+
+            for ind, num_bp in bpts2color:
+                if not np.isnan(df_xy[:, ind, idx]).any():
+                    if (df_likelihood[ind, idx] > pcutoff) or np.isnan(df_likelihood[ind, idx]):
+                        cv.circle(image, tuple(df_xy[:, ind, idx].astype(np.uint16)), dotsize, colors[num_bp], cv.FILLED)
             clip.save_frame(image)
     clip.close()
 
@@ -228,6 +226,23 @@ def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, dr
         videooutname = filepath.replace('.h5', '.mp4')
 
         df = pd.read_hdf(filepath)
+
+        # for head_only
+        df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
+        df = df.drop(columns=["objectA"], level=1)
+        df = df.reindex(columns=[
+            ('2019-03-09_lily_run',  'nose',          'x'),
+            ('2019-03-09_lily_run',  'nose',          'y'),
+            ('2019-03-09_lily_run',  'nose', 'likelihood'),
+            ('2019-03-09_lily_run', 'r_eye',          'x'),
+            ('2019-03-09_lily_run', 'r_eye',          'y'),
+            ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
+            ('2019-03-09_lily_run', 'l_eye',          'x'),
+            ('2019-03-09_lily_run', 'l_eye',          'y'),
+            ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
+        ])
+        df = df.rename(index=lambda s: int(s[-7:-4]))
+
         labeled_bpts = [bp for bp in df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
         clip = VideoProcessorCV(in_name=video, out_name=videooutname, codec=codec)
 
