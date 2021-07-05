@@ -5,7 +5,7 @@ import cv2 as cv
 import numpy as np
 from glob import glob
 from .points import find_corners_images, EOM_curve_fit
-from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target
+from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
 from .utils import create_board_object_pts, save_points, load_points, \
     save_camera, load_camera, load_manual_points, load_dlc_points_as_df, \
@@ -218,6 +218,16 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
 def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=True):
+    nose_pos = positions[:, 0, :]  # (timestep, xyz)
+    r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
+    l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
+    head_pos = np.mean([r_eye_pos, l_eye_pos], axis=0)
+    gaze_targets = np.array([get_gaze_target_from_positions(head_pos[i,:], nose_pos[i,:], r_eye_pos[i,:]) for i in range(len(head_pos))]) # (timestep, xyz)
+    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+    positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
+    markers += ['coe', 'gaze_target']
+
     out_fpath = os.path.join(out_dir, 'tri.pickle')
     save_optimised_cheetah(
         positions, out_fpath,
@@ -227,7 +237,7 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True)
+        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
 
 
 def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
@@ -237,32 +247,39 @@ def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_vide
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh)
+        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh, directions=True)
 
 
 def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
-    marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
-    head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
-    gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['x']]) # (timestep, xyz)
-    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-    positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
+    directions = True
+    if not directions:
+        positions = [get_3d_marker_coords(state, mode) for state in states['x']]
+        smoothed_positions = [get_3d_marker_coords(state, mode) for state in states['smoothed_x']]
+    else:
+        marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
+        head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
+        gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['x']]) # (timestep, xyz)
+        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+        positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
-    marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['smoothed_x']])
-    head_pos = np.array([state[0:3] for state in states['smoothed_x']])
-    gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['smoothed_x']])
-    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-    smoothed_positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
+        marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['smoothed_x']])
+        head_pos = np.array([state[0:3] for state in states['smoothed_x']])
+        gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['smoothed_x']])
+        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+        smoothed_positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
     out_fpath = os.path.join(out_dir, 'ekf.pickle')
     save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
-    bodyparts = get_markers(mode) + ['coe', 'gaze_target']
+    bodyparts = get_markers(mode)
+    if directions:
+        bodyparts += ['coe', 'gaze_target']
     points_on_each_vid = save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh, directions=True)
+        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh, directions=directions)
 
 
 def save_fte(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
@@ -340,7 +357,7 @@ def create_labeled_videos(
 
     # setting for drawing directions
     if directions:
-        lure = True
+        lure = False
         coe = True  # center of eyes
 
     # get drawn body parts
@@ -353,7 +370,7 @@ def create_labeled_videos(
     # get connections for skelton (and directions)
     bodyparts2connect = get_skeleton() if draw_skeleton else None
     if directions:
-        bodyparts2connect.append(['coe', 'lure'])
+        # bodyparts2connect.append(['coe', 'lure'])
         bodyparts2connect.append(['coe', 'gaze_target'])
 
     if out_dir is None:

@@ -72,10 +72,33 @@ def load_scene(fpath, verbose=True):
     return k_arr, d_arr, r_arr, t_arr, cam_res
 
 
-def load_dlc_points_as_df(dlc_df_fpaths, verbose=True):
+def load_dlc_points_as_df(dlc_df_fpaths, verbose=False):
     dfs = []
     for path in dlc_df_fpaths:
-        dlc_df = pd.read_hdf(path)
+        df = pd.read_hdf(path)
+
+        if 'head' in dlc_df_fpaths[0]:
+            df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
+            df = df.drop(columns=["objectA"], level=1)
+            n_rows = len(df)
+            func = lambda x: 1 if not np.isnan(x) else None
+            df['2019-03-09_lily_run', 'nose', 'likelihood'] = df['2019-03-09_lily_run', 'nose', 'x'].apply(func)
+            df['2019-03-09_lily_run', 'r_eye', 'likelihood'] = df['2019-03-09_lily_run', 'r_eye', 'x'].apply(func)
+            df['2019-03-09_lily_run', 'l_eye', 'likelihood'] = df['2019-03-09_lily_run', 'l_eye', 'x'].apply(func)
+            df = df.reindex(columns=[
+                ('2019-03-09_lily_run',  'nose',          'x'),
+                ('2019-03-09_lily_run',  'nose',          'y'),
+                ('2019-03-09_lily_run',  'nose', 'likelihood'),
+                ('2019-03-09_lily_run', 'r_eye',          'x'),
+                ('2019-03-09_lily_run', 'r_eye',          'y'),
+                ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
+                ('2019-03-09_lily_run', 'l_eye',          'x'),
+                ('2019-03-09_lily_run', 'l_eye',          'y'),
+                ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
+            ])
+            df = df.rename(index=lambda s: int(s[-7:-4]))
+
+        dlc_df = df
         dlc_df = dlc_df.droplevel([0], axis=1).swaplevel(0,1,axis=1).T.unstack().T.reset_index().rename({'level_0':'frame'}, axis=1)
         dlc_df.columns.name = ''
         dfs.append(dlc_df)
@@ -221,6 +244,7 @@ def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project
         return result_dfs
     else:
         print('Could not save 3D cheetah to 2D - No videos were found in', out_dir, 'or', os.path.dirname(out_dir))
+        return []
 
 # ========== OTHER ==========
 

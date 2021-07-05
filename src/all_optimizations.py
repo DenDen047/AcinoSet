@@ -513,6 +513,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         return jac
 
     # ========= LOAD DLC DATA ========
+    points_2d_df = points_2d_df.fillna(0)
 
     # Load DLC 2D point files (.h5 outputs)
     points_3d_df = utils.get_pairwise_3d_points_from_df(
@@ -540,18 +541,19 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     # estimate initial points
     states = np.zeros(n_states)
 
-    try:
-        lure_pts = points_3d_df[points_3d_df['marker']=='lure'][['frame', 'x', 'y', 'z']].values
-        lure_x_slope, lure_x_intercept, *_ = linregress(lure_pts[:,0], lure_pts[:,1])
-        lure_y_slope, lure_y_intercept, *_ = linregress(lure_pts[:,0], lure_pts[:,2])
+    if 'lure' in markers:
+        try:
+            lure_pts = points_3d_df[points_3d_df['marker']=='lure'][['frame', 'x', 'y', 'z']].values
+            lure_x_slope, lure_x_intercept, *_ = linregress(lure_pts[:,0], lure_pts[:,1])
+            lure_y_slope, lure_y_intercept, *_ = linregress(lure_pts[:,0], lure_pts[:,2])
 
-        lure_x_est = start_frame*lure_x_slope + lure_x_intercept # initial lure x
-        lure_y_est = start_frame*lure_y_slope + lure_y_intercept # initial lure y
+            lure_x_est = start_frame*lure_x_slope + lure_x_intercept # initial lure x
+            lure_y_est = start_frame*lure_y_slope + lure_y_intercept # initial lure y
 
-        states[[idx['x_l'], idx['y_l']]] = [lure_x_est, lure_y_est]             # lure x & y in inertial
-        states[[idx['dx_l'], idx['dy_l']]] = [lure_x_slope/sT, lure_y_slope/sT] # lure x & y velocity in inertial
-    except ValueError as e: # for when there is no lure data
-        print(f'Lure initialisation error: {e} -> Lure states initialised to zero')
+            states[[idx['x_l'], idx['y_l']]] = [lure_x_est, lure_y_est]             # lure x & y in inertial
+            states[[idx['dx_l'], idx['dy_l']]] = [lure_x_slope/sT, lure_y_slope/sT] # lure x & y velocity in inertial
+        except ValueError as e: # for when there is no lure data
+            print(f'Lure initialisation error: {e} -> Lure states initialised to zero')
 
     points_3d_df = points_3d_df[points_3d_df['frame'].between(start_frame, end_frame)]
 
@@ -585,11 +587,18 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     p_ang_acc[10:] = 5**2
     p_lure_acc = np.ones(3) * 3**2
 
-    P = np.diag(np.concatenate([
-        p_lin_pos, p_ang_pos[:3], neck_len, p_ang_pos[3:], p_lure_pos,
-        p_lin_vel, p_ang_vel[:3], neck_vel, p_ang_vel[3:], p_lure_vel,
-        p_lin_acc, p_ang_acc[:3], neck_acc, p_ang_acc[3:], p_lure_acc,
-    ]))
+    if marker_mode == 'default':
+        P = np.diag(np.concatenate([
+            p_lin_pos, p_ang_pos[:3], neck_len, p_ang_pos[3:], p_lure_pos,
+            p_lin_vel, p_ang_vel[:3], neck_vel, p_ang_vel[3:], p_lure_vel,
+            p_lin_acc, p_ang_acc[:3], neck_acc, p_ang_acc[3:], p_lure_acc,
+        ]))
+    elif marker_mode == 'head':
+        P = np.diag(np.concatenate([
+            p_lin_pos, p_ang_pos[:3], p_ang_pos[3:],
+            p_lin_vel, p_ang_vel[:3], p_ang_vel[3:],
+            p_lin_acc, p_ang_acc[:3], p_ang_acc[3:],
+        ]))
 
     # PROCESS COVARIANCE Q - how 'noisy' the constant acceleration model is
     qb_list = [
@@ -814,6 +823,8 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
+    mode = 'head'
+
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
 
@@ -831,8 +842,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, 'dlc_head')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -847,14 +858,14 @@ if __name__ == '__main__':
     if args.end_frame == -1:
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
-        filtered_points_2d_df = points_2d_df #.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
-        target_markers = misc.get_markers()
+        filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
+        target_markers = misc.get_markers(mode)
         key_markers = ['nose', 'r_eye', 'l_eye']
 
         def frame_condition(i: int, n_markers: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
             num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
-            return num_marker(i) == n_markers
+            return num_marker(i) >= n_markers
 
         def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int, n_markers: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
@@ -873,17 +884,18 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = filtered_points_2d_df['frame'].max() + 1
         for i in range(max_idx):
-            # if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            if frame_condition(i, len(target_markers)):
+            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
+            # if frame_condition(i, len(target_markers)):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1):
-            # if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            if frame_condition(i, len(target_markers)):
+            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
+            # if frame_condition(i, len(target_markers)):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
             raise('Setting frames failed. Please define start and end frames manually.')
+        print(start_frame, end_frame)
     else:
         # User-defined frames
         start_frame = args.start_frame - 1  # 0 based indexing
@@ -894,14 +906,14 @@ if __name__ == '__main__':
     print('========== Triangulation ==========\n')
     _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
     plt.close('all')
-    # print('========== SBA ==========\n')
-    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
+    print('========== SBA ==========\n')
+    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    plt.close('all')
     # print('========== EKF ==========\n')
-    # ekf(DATA_DIR, points_2d_df, 'default', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     # plt.close('all')
     # print('========== FTE ==========\n')
-    # _ = fte(DATA_DIR, points_2d_df, 'head', camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
 
     if args.plot:

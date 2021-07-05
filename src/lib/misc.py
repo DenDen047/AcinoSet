@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import sympy as sp
 from typing import Dict, List
+from scipy.spatial.transform import Rotation
 
 
 def get_markers(mode: str = 'default') -> List[str]:
@@ -77,6 +78,23 @@ def get_gaze_target(h_pos, h_pose, r=3):
     RI_0  = rot_z(psi) @ rot_x(phi) @ rot_y(theta)
     R0_I  = RI_0.T
     gaze_target = p_head + R0_I @ func([r, 0, 0])
+
+    return gaze_target
+
+
+def get_gaze_target_from_positions(h_pos, n_pos, r_eye_pos, r=3):
+    func = sp.Matrix if isinstance(h_pos[0], sp.Expr) else np.array
+
+    p_head = func(h_pos)
+    p_nose = func(n_pos)
+    p_r_eye = func(r_eye_pos)
+    v_nose = p_nose - p_head
+    u = p_r_eye - p_head
+
+    # TODO: Check this formulation again
+    R = func(Rotation.from_mrp(np.tan(np.pi/4 / 4) * u / np.linalg.norm(u)).as_matrix())
+    v = R @ v_nose
+    gaze_target = p_head + r * v / np.linalg.norm(v)
 
     return gaze_target
 
