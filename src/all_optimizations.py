@@ -825,7 +825,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'default'
+    mode = 'head'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
@@ -842,7 +842,7 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc_head')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     # print('========== DLC ==========\n')
     # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
@@ -906,19 +906,19 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    # print('========== Triangulation ==========\n')
-    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
-    # plt.close('all')
+    print('========== Triangulation ==========\n')
+    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    plt.close('all')
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
     # points_2d_df = points_2d_df.fillna(0)
-    print('========== EKF ==========\n')
-    ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    plt.close('all')
-    print('========== FTE ==========\n')
-    _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== EKF ==========\n')
+    # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    # plt.close('all')
+    # print('========== FTE ==========\n')
+    # _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
 
     if args.plot:
         print('Plotting results...')
