@@ -77,7 +77,7 @@ def get_gaze_target(x, r=3):
     p_head = func([x[idx['x_0']], x[idx['y_0']], x[idx['z_0']]])
     RI_0  = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])
     R0_I  = RI_0.T
-    gaze_target = p_head + R0_I @ func([r, 0, -r])
+    gaze_target = p_head + R0_I @ func([r, 0, 0])
 
     return gaze_target
 
