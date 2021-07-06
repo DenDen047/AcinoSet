@@ -72,16 +72,18 @@ def load_scene(fpath, verbose=True):
     return k_arr, d_arr, r_arr, t_arr, cam_res
 
 
-def load_dlc_points_as_df(dlc_df_fpaths, verbose=False):
+def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
+    assert frame_shifts is None or len(dlc_df_fpaths) == len(frame_shifts), print("`frame_shifts` should be the same size with `dlc_df_fpaths`")
+
     dfs = []
-    for path in dlc_df_fpaths:
+    for i, path in enumerate(dlc_df_fpaths):
         df = pd.read_hdf(path)
 
         if 'head' in dlc_df_fpaths[0]:
             df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
             df = df.drop(columns=["objectA"], level=1)
             n_rows = len(df)
-            func = lambda x: 1 if not np.isnan(x) else None
+            func = lambda x: 1 if not np.isnan(x) else 0
             df['2019-03-09_lily_run', 'nose', 'likelihood'] = df['2019-03-09_lily_run', 'nose', 'x'].apply(func)
             df['2019-03-09_lily_run', 'r_eye', 'likelihood'] = df['2019-03-09_lily_run', 'r_eye', 'x'].apply(func)
             df['2019-03-09_lily_run', 'l_eye', 'likelihood'] = df['2019-03-09_lily_run', 'l_eye', 'x'].apply(func)
@@ -101,8 +103,14 @@ def load_dlc_points_as_df(dlc_df_fpaths, verbose=False):
         dlc_df = df
         dlc_df = dlc_df.droplevel([0], axis=1).swaplevel(0,1,axis=1).T.unstack().T.reset_index().rename({'level_0':'frame'}, axis=1)
         dlc_df.columns.name = ''
+
+        # frame drift
+        if frame_shifts is not None and frame_shifts[i] > 0:
+            dlc_df = dlc_df.shift(periods=frame_shifts[i])
+
         dfs.append(dlc_df)
-    #create new dataframe
+
+    # create new dataframe
     dlc_df = pd.DataFrame(columns=['frame', 'camera', 'marker', 'x', 'y', 'likelihood'])
     for i, df in enumerate(dfs):
         df['camera'] = i

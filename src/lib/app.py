@@ -8,7 +8,7 @@ from .points import find_corners_images, EOM_curve_fit
 from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
 from .utils import create_board_object_pts, save_points, load_points, \
-    save_camera, load_camera, load_manual_points, load_dlc_points_as_df, \
+    save_camera, load_camera, load_manual_points, \
     find_scene_file, save_optimised_cheetah, save_3d_cheetah_as_2d, get_pairwise_3d_points_from_df
 from .sba import _sba_board_points, _sba_points
 from .calib import calibrate_camera, calibrate_fisheye_camera, \
