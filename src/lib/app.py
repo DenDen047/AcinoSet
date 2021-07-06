@@ -369,7 +369,7 @@ def create_labeled_videos(
     # get connections for skelton (and directions)
     bodyparts2connect = get_skeleton() if draw_skeleton else None
     if directions:
-        # bodyparts2connect.append(['coe', 'lure'])
+        bodyparts2connect.append(['coe', 'lure'])
         bodyparts2connect.append(['coe', 'gaze_target'])
 
     if out_dir is None:
