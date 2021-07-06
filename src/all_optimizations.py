@@ -124,7 +124,6 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     #===================================================
     #                   Load in data
     #===================================================
-    points_2d_df = points_2d_df.fillna(0)
     print('Generating pairwise 3D points')
     points_3d_df = utils.get_pairwise_3d_points_from_df(
         points_2d_df.query(f'likelihood > {dlc_thresh}'),
@@ -472,7 +471,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     # other vars
     n_frames = end_frame - start_frame + 1
     sigma_bound = 3
-    max_pixel_err = cam_res[0]  # used in measurement covariance R
+    max_pixel_err = cam_res[0] * 2  # used in measurement covariance R
     sT = 1.0 / fps  # timestep
 
     # save reconstruction parameters
@@ -659,9 +658,6 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         P_pred_hist[i] = P
 
         # ============ UPDATE ============
-        z_k = pixels_arr[i + start_frame]
-        likelihood = likelihood_arr[i + start_frame]
-
         # Measurement
         H = np.zeros((n_cams*n_markers*2, n_states))
         h = np.zeros((n_cams*n_markers*2))  # same as H[:, 0].copy()
@@ -672,13 +668,15 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
             H[j*n_markers*2:(j+1)*n_markers*2, 0:vel_idx] = numerical_jacobian(h_function, states[:vel_idx], *camera_params[j])
 
         # Measurement Covariance R
+        likelihood = likelihood_arr[i + start_frame]
         bad_point_mask = np.repeat(likelihood<dlc_thresh, 2)
         dlc_cov_arr = dlc_cov*np.ones((n_cams*n_markers*2))
         dlc_cov_arr[bad_point_mask] = max_pixel_err # change this to be independent of cam res?
         R = np.diag(dlc_cov_arr**2)
 
         # Residual
-        residual = z_k - h
+        z_k = pixels_arr[i + start_frame]
+        residual = np.nan_to_num(z_k - h)
 
         # Residual Covariance S
         S = (H @ P @ H.T) + R
@@ -914,12 +912,13 @@ if __name__ == '__main__':
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
-    # print('========== EKF ==========\n')
-    # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    # plt.close('all')
-    print('========== FTE ==========\n')
-    _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # points_2d_df = points_2d_df.fillna(0)
+    print('========== EKF ==========\n')
+    ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     plt.close('all')
+    # print('========== FTE ==========\n')
+    # _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
 
     if args.plot:
         print('Plotting results...')
