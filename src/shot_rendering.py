@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import numpy as np
+from numpy.core.defchararray import count
 import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
@@ -15,14 +16,17 @@ from argparse import ArgumentParser
 from scipy.stats import linregress
 from pyomo.opt import SolverFactory
 
-from lib import misc, utils, app
+from lib import misc, utils, app, vid
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from lib.misc import get_markers
+
+import cv2 as cv
+
 
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dict = {}) -> Dict:
+def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, target_frame, target_bodypart, target_cam, params: Dict = {}):
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -32,27 +36,52 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dic
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
 
+    # === Get Target Frame ===
+    points_2d_df = points_2d_df.query(f'marker == "{target_bodypart}"')
+    valid_frames = np.unique(points_2d_df['frame'])
+    assert target_frame in valid_frames, print(f'choose from these frames: {valid_frames}')
+    points_2d_df = points_2d_df[points_2d_df['frame'] == target_frame]
+
+    # add noise
+    # points_2d_df['x'].loc[411] += 5
+
     # triangulation
-    points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
     points_3d_df = utils.get_pairwise_3d_points_from_df(
         points_2d_df,
         k_arr, d_arr.reshape((-1,4)), r_arr, t_arr,
-        triangulate_points_fisheye
+        triangulate_points_fisheye,
+        verbose=False
     )
-    points_3d_df['point_index'] = points_3d_df.index
 
-    # ========= SAVE TRIANGULATION RESULTS ========
-    markers = misc.get_markers(mode='all')
-    positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
+    # show parameters
+    print('=== 2D points ===')
+    print(points_2d_df)
+    print('=== 3D points ===')
+    print(points_3d_df)
 
-    for i, marker in enumerate(markers):
-        marker_pts = points_3d_df[points_3d_df['marker']==marker][['frame', 'x', 'y', 'z']].values
-        for frame, *pt_3d in marker_pts:
-            positions[int(frame) - start_frame, i] = pt_3d
+    # === Rendering ===
+    # set parameters
+    cam_idx = target_cam - 1
+    candidate_cams = np.unique(points_2d_df['camera'])
+    assert cam_idx in candidate_cams, print(f'Please choose the camera index from {candidate_cams}')
+    video_fpaths = sorted(glob(os.path.join(os.path.dirname(OUT_DIR), 'cam[1-9].mp4')))
+    video_fpath = video_fpaths[cam_idx]
+    clip = vid.VideoProcessorCV(in_name=video_fpath)
 
-    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame)
+    # load the original image
+    for _ in range(target_frame):
+        clip.load_frame()
+    print('FRAME:', clip.i)
+    image = clip.load_frame()
 
-    return params
+    # 3d to 2d
+    positions_3d = points_3d_df[['x', 'y', 'z']].values
+    positions_3d = np.array(positions_3d)
+    projections = project_points_fisheye(positions_3d, k_arr[cam_idx], d_arr[cam_idx], r_arr[cam_idx], t_arr[cam_idx])
+
+    # draw and save
+    cv.circle(image, tuple(projections[0].astype(np.uint16)), radius=2, color=(0, 0, 255), thickness=cv.FILLED)
+    cv.imwrite(os.path.join(OUT_DIR, f'frame_{target_frame}.jpg'), image)
 
 
 def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
@@ -112,13 +141,16 @@ if __name__ == '__main__':
     points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,0,0,-2], verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
-    print(filtered_points_2d_df)
-    sys.exit(1)
-
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    # Triangulation
+    _ = tri(
+        DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath,
+        target_frame=137,
+        target_bodypart='nose',
+        target_cam=3,
+        params=vid_params
+    )
     plt.close('all')
 
     if args.plot:

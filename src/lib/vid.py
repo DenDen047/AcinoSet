@@ -138,7 +138,7 @@ class VideoProcessorCV(VideoProcessor):
         return cv.VideoWriter(self.out_name, fourcc, self.FPS, (self.out_w, self.out_h), True)
 
     def _read_frame(self):
-#         return np.flip(self.in_vid.read()[1], 2) # return RGB rather than BGR!
+        # return np.flip(self.in_vid.read()[1], 2) # return RGB rather than BGR!
         return self.in_vid.read()[1]
 
     def save_frame(self, frame):
@@ -230,21 +230,21 @@ def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, dr
 
         df = pd.read_hdf(filepath)
 
-        # # for head_only
-        # df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
-        # df = df.drop(columns=["objectA"], level=1)
-        # df = df.reindex(columns=[
-        #     ('2019-03-09_lily_run',  'nose',          'x'),
-        #     ('2019-03-09_lily_run',  'nose',          'y'),
-        #     ('2019-03-09_lily_run',  'nose', 'likelihood'),
-        #     ('2019-03-09_lily_run', 'r_eye',          'x'),
-        #     ('2019-03-09_lily_run', 'r_eye',          'y'),
-        #     ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
-        #     ('2019-03-09_lily_run', 'l_eye',          'x'),
-        #     ('2019-03-09_lily_run', 'l_eye',          'y'),
-        #     ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
-        # ])
-        # df = df.rename(index=lambda s: int(s[-7:-4]))
+        # for head_only
+        df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
+        df = df.drop(columns=["objectA"], level=1)
+        df = df.reindex(columns=[
+            ('2019-03-09_lily_run',  'nose',          'x'),
+            ('2019-03-09_lily_run',  'nose',          'y'),
+            ('2019-03-09_lily_run',  'nose', 'likelihood'),
+            ('2019-03-09_lily_run', 'r_eye',          'x'),
+            ('2019-03-09_lily_run', 'r_eye',          'y'),
+            ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
+            ('2019-03-09_lily_run', 'l_eye',          'x'),
+            ('2019-03-09_lily_run', 'l_eye',          'y'),
+            ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
+        ])
+        df = df.rename(index=lambda s: int(s[-7:-4]))
 
         labeled_bpts = [bp for bp in df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
         clip = VideoProcessorCV(in_name=video, out_name=videooutname, codec=codec)

@@ -339,7 +339,7 @@ def create_labeled_videos(
     video_fpaths,
     videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None,
     draw_skeleton=False,
-    pcutoff=0.5, dotsize=6,
+    pcutoff=0.5, dotsize=3,
     colormap='jet', skeleton_color='white',
     lure: bool = False,
     coe: bool = False,
