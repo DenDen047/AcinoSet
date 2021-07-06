@@ -250,22 +250,21 @@ def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_vide
         create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, pcutoff=dlc_thresh, directions=True)
 
 
-def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
-    directions = True
+def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, directions=True, save_videos=True):
     if not directions:
         positions = [get_3d_marker_coords(state, mode) for state in states['x']]
         smoothed_positions = [get_3d_marker_coords(state, mode) for state in states['smoothed_x']]
     else:
         marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
         head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
-        gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['x']]) # (timestep, xyz)
+        gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
         head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
         gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
         positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
         marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['smoothed_x']])
         head_pos = np.array([state[0:3] for state in states['smoothed_x']])
-        gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['smoothed_x']])
+        gaze_targets = np.array([get_gaze_target(state) for state in states['smoothed_x']])
         head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
         gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
         smoothed_positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
@@ -285,7 +284,7 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_v
 def save_fte(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
     marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
     head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
-    gaze_targets = np.array([get_gaze_target(state[0:3], state[3:6]) for state in states['x']]) # (timestep, xyz)
+    gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
 
     head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
     gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)

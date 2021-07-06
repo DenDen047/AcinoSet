@@ -70,22 +70,22 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
     return dict(zip(states, range(len(states))))
 
 
-def get_gaze_target(h_pos, h_pose, r=3):
-    func = sp.Matrix if isinstance(h_pos[0], sp.Expr) else np.array
+def get_gaze_target(x, r=3):
+    func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
+    idx = get_pose_params()
 
-    p_head = func(h_pos)
-    psi, phi, theta = h_pose
-    RI_0  = rot_z(psi) @ rot_x(phi) @ rot_y(theta)
+    p_head = func([x[idx['x_0']], x[idx['y_0']], x[idx['z_0']]])
+    RI_0  = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])
     R0_I  = RI_0.T
-    gaze_target = p_head + R0_I @ func([r, 0, 0])
+    gaze_target = p_head + R0_I @ func([r, 0, -r])
 
     return gaze_target
 
 
-def get_gaze_target_from_positions(h_pos, n_pos, r_eye_pos, r=3):
-    func = sp.Matrix if isinstance(h_pos[0], sp.Expr) else np.array
+def get_gaze_target_from_positions(pos_h, n_pos, r_eye_pos, r=3):
+    func = sp.Matrix if isinstance(pos_h[0], sp.Expr) else np.array
 
-    p_head = func(h_pos)
+    p_head = func(pos_h)
     p_nose = func(n_pos)
     p_r_eye = func(r_eye_pos)
     v_nose = p_nose - p_head
@@ -102,7 +102,7 @@ def get_gaze_target_from_positions(h_pos, n_pos, r_eye_pos, r=3):
 def get_3d_marker_coords(x, mode: str = 'default'):
     """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
     """
-    idx = get_pose_params()
+    idx = get_pose_params(mode)
     func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
 
     if mode == 'default':
