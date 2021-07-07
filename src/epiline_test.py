@@ -31,7 +31,6 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, target_fram
     os.makedirs(OUT_DIR, exist_ok=True)
     cam_i = target_cam - 1
     ecam_i = epipolar_cam - 1
-
     # save reconstruction parameters
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
@@ -39,17 +38,10 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, target_fram
         json.dump(params, f)
 
     # === Get Target Frame ===
-    points_2d_df = points_2d_df[points_2d_df['camera'].isin([cam_i, ecam_i])]
     points_2d_df = points_2d_df.query(f'marker == "{target_bodypart}"')
-    valid_frames = []
-    for f in np.unique(points_2d_df['frame']):
-        df = points_2d_df[points_2d_df['frame'] == f]
-        cams = np.unique(df['camera'])
-        if (cam_i in cams) and (ecam_i in cams):
-            valid_frames.append(f)
-    valid_frames = np.random.choice(valid_frames, int(len(valid_frames) / 2))
-
-    points_2d_df = points_2d_df[points_2d_df['frame'].isin(valid_frames)]
+    valid_frames = np.unique(points_2d_df['frame'])
+    assert target_frame in valid_frames, print(f'choose from these frames: {valid_frames}')
+    points_2d_df = points_2d_df[points_2d_df['frame'] == target_frame]
 
     # === Rendering ===
     # set parameters
@@ -57,13 +49,21 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, target_fram
     assert cam_i in candidate_cams, print(f'Please choose the camera index from {candidate_cams}')
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(OUT_DIR), 'cam[1-9].mp4')))
 
-    # 3d to 2d
-    pts1 = points_2d_df[points_2d_df['camera'] == cam_i].sort_values(by=['frame'])[['x', 'y']].to_numpy()
-    pts2 = points_2d_df[points_2d_df['camera'] == ecam_i].sort_values(by=['frame'])[['x', 'y']].to_numpy()
-    n_points = len(pts1)
-
-     # get Fundamental matrix
+    # === Fundamental matrix ===
+    points_3d = np.random.rand(1000, 3)
+    r = 3
+    points_3d[:, 0] = points_3d[:, 0] * r - r/2 + 8.0
+    points_3d[:, 1] = points_3d[:, 1] * r - r/2 + 5.5
+    points_3d[:, 2] = points_3d[:, 2] * r - r/2 + 0.0
+    pts1 = project_points_fisheye(points_3d, k_arr[cam_i], d_arr[cam_i], r_arr[cam_i], t_arr[cam_i])
+    pts2 = project_points_fisheye(points_3d, k_arr[ecam_i], d_arr[ecam_i], r_arr[ecam_i], t_arr[ecam_i])
     F, _ = cv.findFundamentalMat(pts1, pts2, cv.FM_LMEDS)
+
+    # === Get Target Frame ===
+    # 3d to 2d
+    pts1 = points_2d_df[points_2d_df['camera'] == cam_i][['x', 'y']].to_numpy()
+    pts2 = points_2d_df[points_2d_df['camera'] == ecam_i][['x', 'y']].to_numpy()
+    n_points = len(pts1)
 
     # get epilines
     lines1 = cv.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2, F)
