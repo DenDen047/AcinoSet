@@ -122,7 +122,7 @@ class Animation:
 
         self.view = gl.GLViewWidget()
         self.view.setBackgroundColor([255*(not dark_mode)]*3)
-#         self.view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self.view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.view.opts['distance']=15
         self.view.orbit(-135,10)
 
