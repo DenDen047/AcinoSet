@@ -26,17 +26,31 @@ import cv2 as cv
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def checkerboard(DATA_DIR, target_frame, target_bodypart, target_cam):
+
+# draw
+def drawdots(img, pts):
+    n_pts = len(pts)
+    colorclass = plt.cm.ScalarMappable(cmap='jet')
+    C = colorclass.to_rgba(np.linspace(0, 1, n_pts))
+    colors = (C[:, :3] * 255).astype(np.uint8).tolist()
+
+    for i, pt1 in enumerate(pts):
+        color = colors[i]
+        img = cv.circle(img, tuple(pt1.astype(np.uint16)), 5, color, -1)
+    return img
+
+
+def checkerboard(DATA_DIR, target_cam):
     calib_dir = os.path.join(DATA_DIR, 'extrinsic_calib')
     scene_fpath = os.path.join(calib_dir, '6_cam_scene_sba.json')
     frame_dir = os.path.join(calib_dir, 'frames', str(target_cam))
     points_fpaths = sorted(glob(os.path.join(calib_dir, 'points', 'points[1-9].json')))
-    target_frame_name = 'img{:05}.jpg'.format(target_frame)
-    target_frame_fpath = os.path.join(frame_dir, target_frame_name)
     cam_i = target_cam - 1
 
+    print('Target camera:', target_cam)
+
     # load scene
-    k_arr, d_arr, r_arr, t_arr, cam_res = utils.load_scene(scene_fpath)
+    k_arr, d_arr, r_arr, t_arr, cam_res = utils.load_scene(scene_fpath, verbose=False)
     n_cams = len(k_arr)
 
     pts_2d = []
@@ -50,10 +64,23 @@ def checkerboard(DATA_DIR, target_frame, target_bodypart, target_cam):
     a = cam_i
     b = (cam_i + 1) % n_cams
     img_pts_1, img_pts_2, fnames = points.common_image_points(
-        pts_2d[a], [target_frame_name],
+        pts_2d[a], frames[a],
         pts_2d[b], frames[b]
     )
     assert len(fnames) > 0
+
+    # get target frame
+    pprint(fnames)
+    idx = 2
+    target_frame_name = fnames[idx]
+    img_pts_1 = img_pts_1[idx]
+    img_pts_2 = img_pts_2[idx]
+    print('Target frame:', target_frame_name)
+
+    # load target frame
+    target_frame_fpath = os.path.join(frame_dir, target_frame_name)
+    image = cv.imread(target_frame_fpath, cv.IMREAD_COLOR)
+    assert image is not None
     pts_3d = triangulate_points_fisheye(
         img_pts_1, img_pts_2,
         k_arr[a], d_arr[a], r_arr[a], t_arr[a],
@@ -62,28 +89,13 @@ def checkerboard(DATA_DIR, target_frame, target_bodypart, target_cam):
 
     # 3d to 2d
     pts_2d = project_points_fisheye(pts_3d, k_arr[cam_i], d_arr[cam_i], r_arr[cam_i], t_arr[cam_i])
-    print(pts_2d.shape)
-
-    # load the frame
-    image = cv.imread(target_frame_fpath, cv.IMREAD_COLOR)
-    assert image is not None
 
     # draw
-    def drawdots(img, pts):
-        n_pts = len(pts)
-        colorclass = plt.cm.ScalarMappable(cmap='jet')
-        C = colorclass.to_rgba(np.linspace(0, 1, n_pts))
-        colors = (C[:, :3] * 255).astype(np.uint8).tolist()
-
-        for i, pt1 in enumerate(pts):
-            color = colors[i]
-            img = cv.circle(img, tuple(pt1.astype(np.uint16)), 5, color, -1)
-        return img
-
-    result = drawdots(image, pts_2d)
+    # result = drawdots(image, pts_2d)
+    result = drawdots(image, img_pts_1.reshape((-1, 2)))
 
     # save
-    cv.imwrite(os.path.join(calib_dir, f'cam{target_cam}_{target_frame}.jpg'), result)
+    cv.imwrite(os.path.join(calib_dir, f'cam{target_cam}_'+target_frame_name), result)
 
 
 def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
@@ -115,10 +127,7 @@ if __name__ == '__main__':
     # Checkerboard
     _ = checkerboard(
         DATA_DIR,
-        target_frame=197,
-        target_bodypart='r_eye',
-        target_cam=2,
-        frame_shifts=[0,0,1,0,0,-2]
+        target_cam=2
     )
     plt.close('all')
 
