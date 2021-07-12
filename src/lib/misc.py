@@ -89,13 +89,10 @@ def get_gaze_target_from_positions(pos_h, n_pos, r_eye_pos, r=3):
     v_nose = (p_nose - p_head) / np.linalg.norm(p_nose - p_head)
     v_reye = (r_eye_pos - p_head) / np.linalg.norm(r_eye_pos - p_head)
 
-    # nose
-    gaze_target = p_head + r * v_nose
-
-    # # TODO: Check this formulation again
-    # R = func(Rotation.from_mrp(np.tan(np.pi/4 / 4) * u / np.linalg.norm(u)).as_matrix())
-    # v = R @ v_nose
-    # gaze_target = p_head + r * v / np.linalg.norm(v)
+    # TODO: Check this formulation again
+    rotation = Rotation.from_mrp(np.tan(np.pi/4 / 4) * v_reye)
+    v = rotation.apply(v_nose)
+    gaze_target = p_head + r * v
 
     return gaze_target
 

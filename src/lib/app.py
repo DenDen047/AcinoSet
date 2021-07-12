@@ -240,10 +240,20 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
         create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
 
 
-def save_sba(positions, out_dir, scene_fpath, start_frame, dlc_thresh, save_videos=True):
+def save_sba(positions, out_dir, scene_fpath, markers, start_frame, dlc_thresh, save_videos=True):
+    nose_pos = positions[:, 0, :]  # (timestep, xyz)
+    r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
+    l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
+    head_pos = np.mean([r_eye_pos, l_eye_pos], axis=0)
+    gaze_targets = np.array([get_gaze_target_from_positions(head_pos[i,:], nose_pos[i,:], r_eye_pos[i,:]) for i in range(len(head_pos))]) # (timestep, xyz)
+    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+    positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
+    markers += ['coe', 'gaze_target']
+
     out_fpath = os.path.join(out_dir, 'sba.pickle')
     save_optimised_cheetah(positions, out_fpath, extra_data=dict(start_frame=start_frame))
-    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, get_markers(), project_points_fisheye, start_frame)
+    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
@@ -339,7 +349,7 @@ def create_labeled_videos(
     video_fpaths,
     videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None,
     draw_skeleton=False,
-    pcutoff=0.5, dotsize=6,
+    pcutoff=0.5, dotsize=3,
     colormap='jet', skeleton_color='white',
     lure: bool = False,
     coe: bool = False,
