@@ -168,8 +168,8 @@ if __name__ == '__main__':
     epilines(
         DATA_DIR, filtered_points_2d_df,
         target_frame=137,
-        target_bodypart='r_eye',
-        target_cam=2,
-        epipolar_cam=3
+        target_bodypart='nose',
+        target_cam=1,
+        epipolar_cam=4
     )
 
