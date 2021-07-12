@@ -805,11 +805,15 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dic
             # get 2d and reprojected points
             pts_2d = pts_2d_df.query(q)[['x', 'y']].to_numpy()
             pts_3d = pts_3d_df.query(q)[['x', 'y', 'z']].to_numpy()
+            if len(pts_2d_df) == 0 or len(pts_3d_df) == 0:
+                continue
             prj_2d = project_points_fisheye(pts_3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
 
             # compare both types of points
             diffs = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
             errors += diffs.tolist()
+    print('average error:', np.mean(errors))
+    print('std error:', np.std(errors))
 
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -819,7 +823,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dic
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame)
+    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, errors)
 
     return params
 

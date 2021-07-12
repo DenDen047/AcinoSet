@@ -217,7 +217,7 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # All these save functions are very similar... Generalise!!
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
-def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=True):
+def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save_videos=True):
     nose_pos = positions[:, 0, :]   # (timestep, xyz)
     r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
     l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
@@ -233,7 +233,12 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
     out_fpath = os.path.join(out_dir, 'tri.pickle')
     save_optimised_cheetah(
         positions, out_fpath,
-        extra_data=dict(start_frame=start_frame)
+        extra_data=dict(
+            start_frame=start_frame,
+            errors=errors,
+            avg_error=np.mean(errors),
+            error_std=np.std(errors)
+        )
     )
     save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
