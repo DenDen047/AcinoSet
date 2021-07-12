@@ -26,52 +26,24 @@ import cv2 as cv
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, target_frame, target_bodypart, target_cam, epipolar_cam, params: Dict = {}):
-    OUT_DIR = os.path.join(DATA_DIR, 'tri')
+def epilines(DATA_DIR, points_2d_df, target_frame, target_bodypart, target_cam, epipolar_cam):
+    OUT_DIR = os.path.join(DATA_DIR, 'epilines')
     os.makedirs(OUT_DIR, exist_ok=True)
     cam_i = target_cam - 1
     ecam_i = epipolar_cam - 1
-    # save reconstruction parameters
-    params['start_frame'] = start_frame
-    params['end_frame'] = end_frame
-    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(params, f)
 
-    # === Get Target Frame ===
+    # filter DLC 2d points
     points_2d_df = points_2d_df.query(f'marker == "{target_bodypart}"')
     valid_frames = np.unique(points_2d_df['frame'])
     assert target_frame in valid_frames, print(f'choose from these frames: {valid_frames}')
     points_2d_df = points_2d_df[points_2d_df['frame'] == target_frame]
 
-    # === Rendering ===
-    # set parameters
+    # get video file paths
     candidate_cams = np.unique(points_2d_df['camera'])
     assert cam_i in candidate_cams, print(f'Please choose the camera index from {candidate_cams}')
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(OUT_DIR), 'cam[1-9].mp4')))
 
-    # === Fundamental matrix ===
-    points_3d = np.random.rand(1000, 3)
-    r = 3
-    points_3d[:, 0] = points_3d[:, 0] * r - r/2 + 8.0
-    points_3d[:, 1] = points_3d[:, 1] * r - r/2 + 5.5
-    points_3d[:, 2] = points_3d[:, 2] * r - r/2 + 0.0
-    pts1 = project_points_fisheye(points_3d, k_arr[cam_i], d_arr[cam_i], r_arr[cam_i], t_arr[cam_i])
-    pts2 = project_points_fisheye(points_3d, k_arr[ecam_i], d_arr[ecam_i], r_arr[ecam_i], t_arr[ecam_i])
-    F, _ = cv.findFundamentalMat(pts1, pts2, cv.FM_LMEDS)
-
-    # === Get Target Frame ===
-    # 3d to 2d
-    pts1 = points_2d_df[points_2d_df['camera'] == cam_i][['x', 'y']].to_numpy()
-    pts2 = points_2d_df[points_2d_df['camera'] == ecam_i][['x', 'y']].to_numpy()
-    n_points = len(pts1)
-
-    # get epilines
-    lines1 = cv.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2, F)
-    lines1 = lines1.reshape(-1, 3)
-    lines2 = cv.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1, F)
-    lines2 = lines2.reshape(-1, 3)
-
-    # load the original image
+    # load the original images
     clip1 = vid.VideoProcessorCV(in_name=video_fpaths[cam_i])
     clip2 = vid.VideoProcessorCV(in_name=video_fpaths[ecam_i])
     for _ in range(target_frame):
@@ -80,22 +52,25 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, target_fram
     image1 = clip1.load_frame()
     image2 = clip2.load_frame()
 
-    colorclass = plt.cm.ScalarMappable(cmap='jet')
-    C = colorclass.to_rgba(np.linspace(0, 1, n_points))
-    colors = (C[:, :3] * 255).astype(np.uint8).tolist()
+    # get 3d points
+    epipoint_pos = utils.get_pairwise_3d_points_from_df(
+        points_2d_df,
+        k_arr, d_arr.reshape((-1,4)), r_arr, t_arr,
+        triangulate_points_fisheye
+    )[['x', 'y', 'z']].to_numpy().flatten()
+    epicam_pos = np.array(t_arr[ecam_i]).flatten()
+    print(epipoint_pos)
+    print(epicam_pos)
+    sys.exit(1)
+    points_3d = np.random.rand(1000, 3)
+    r = 3
+    points_3d[:, 0] = points_3d[:, 0] * r - r/2 + 8.0
+    points_3d[:, 1] = points_3d[:, 1] * r - r/2 + 5.5
+    points_3d[:, 2] = points_3d[:, 2] * r - r/2 + 0.0
 
-    def drawlines(img1, lines, pts1):
-        r, c, _ = img1.shape
-        for i, (r,pt1) in enumerate(zip(lines,pts1)):
-            color = colors[i]
-            x0,y0 = map(int, [0, -r[2]/r[1] ])
-            x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
-            img1 = cv.line(img1, (x0,y0), (x1,y1), color,1)
-            img1 = cv.circle(img1,tuple(pt1.astype(np.uint16)),5,color,-1)
-        return img1
-
-    result1= drawlines(image1, lines1, pts1)
-    result2 = drawlines(image2 ,lines2, pts2)
+    # project 3d points to 2d ones
+    pts1 = project_points_fisheye(points_3d, k_arr[cam_i], d_arr[cam_i], r_arr[cam_i], t_arr[cam_i])
+    pts2 = project_points_fisheye(points_3d, k_arr[ecam_i], d_arr[ecam_i], r_arr[ecam_i], t_arr[ecam_i])
 
     # save
     cv.imwrite(os.path.join(OUT_DIR, f'frame_{target_frame}_1.jpg'), result1)
@@ -165,13 +140,12 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
     # Triangulation
-    _ = tri(
-        DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath,
+    _ = epilines(
+        DATA_DIR, filtered_points_2d_df,
         target_frame=137,
         target_bodypart='r_eye',
         target_cam=2,
-        epipolar_cam=3,
-        params=vid_params
+        epipolar_cam=3
     )
     plt.close('all')
 
