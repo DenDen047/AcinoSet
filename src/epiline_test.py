@@ -83,11 +83,13 @@ def epilines(DATA_DIR, points_2d_df, target_frame, target_bodypart, target_cam, 
     camera_positions = misc.global_positions(r_arr, t_arr)
     epicam_pos = camera_positions[ecam_i].flatten()
 
-    n = 1000
+    n_pts = 10000
+    expand = 5
     points = []
-    for i in range(n+1):
-        r = i / n
-        p = r*epicam_pos + (1-r)*epipoint_pos
+    for i in range(n_pts+1):
+        m = i / n_pts * expand
+        n = 1.0 - m
+        p = (m*epipoint_pos + n*epicam_pos) / (m + n)
         points.append(p)
 
     points_3d = np.vstack(points)
