@@ -772,6 +772,7 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath,
 def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dict = {}) -> Dict:
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
+    markers = misc.get_markers(mode='all')
 
     # save reconstruction parameters
     params['start_frame'] = start_frame
@@ -788,8 +789,29 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dic
     )
     points_3d_df['point_index'] = points_3d_df.index
 
+    # calculate residual error
+    errors = []
+    n_cam = len(k_arr)
+    for i in range(n_cam):
+        for m in markers:
+            # extract frames
+            q = f'marker == "{m}"'
+            pts_2d_df = points_2d_df.query(q + f'and camera == {i}')
+            pts_3d_df = points_3d_df.query(q)
+            valid_frames = np.intersect1d(pts_2d_df['frame'].to_numpy(), pts_3d_df['frame'].to_numpy())
+            pts_2d_df = pts_2d_df[pts_2d_df['frame'].isin(valid_frames)].sort_values(by=['frame'])
+            pts_3d_df = pts_3d_df[pts_3d_df['frame'].isin(valid_frames)].sort_values(by=['frame'])
+
+            # get 2d and reprojected points
+            pts_2d = pts_2d_df.query(q)[['x', 'y']].to_numpy()
+            pts_3d = pts_3d_df.query(q)[['x', 'y', 'z']].to_numpy()
+            prj_2d = project_points_fisheye(pts_3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
+
+            # compare both types of points
+            diffs = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
+            errors += diffs.tolist()
+
     # ========= SAVE TRIANGULATION RESULTS ========
-    markers = misc.get_markers(mode='all')
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
 
     for i, marker in enumerate(markers):
@@ -906,18 +928,18 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    # print('========== Triangulation ==========\n')
-    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
-    # plt.close('all')
+    print('========== Triangulation ==========\n')
+    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    plt.close('all')
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
     # print('========== EKF ==========\n')
     # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     # plt.close('all')
-    print('========== FTE ==========\n')
-    _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== FTE ==========\n')
+    # _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
 
     if args.plot:
         print('Plotting results...')
