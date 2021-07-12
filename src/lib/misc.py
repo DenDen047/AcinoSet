@@ -83,18 +83,19 @@ def get_gaze_target(x, r=3):
 
 
 def get_gaze_target_from_positions(pos_h, n_pos, r_eye_pos, r=3):
-    func = sp.Matrix if isinstance(pos_h[0], sp.Expr) else np.array
+    p_head = pos_h
+    p_nose = n_pos
+    p_r_eye = r_eye_pos
+    v_nose = (p_nose - p_head) / np.linalg.norm(p_nose - p_head)
+    v_reye = (r_eye_pos - p_head) / np.linalg.norm(r_eye_pos - p_head)
 
-    p_head = func(pos_h)
-    p_nose = func(n_pos)
-    p_r_eye = func(r_eye_pos)
-    v_nose = p_nose - p_head
-    u = p_r_eye - p_head
+    # nose
+    gaze_target = p_head + r * v_nose
 
-    # TODO: Check this formulation again
-    R = func(Rotation.from_mrp(np.tan(np.pi/4 / 4) * u / np.linalg.norm(u)).as_matrix())
-    v = R @ v_nose
-    gaze_target = p_head + r * v / np.linalg.norm(v)
+    # # TODO: Check this formulation again
+    # R = func(Rotation.from_mrp(np.tan(np.pi/4 / 4) * u / np.linalg.norm(u)).as_matrix())
+    # v = R @ v_nose
+    # gaze_target = p_head + r * v / np.linalg.norm(v)
 
     return gaze_target
 
