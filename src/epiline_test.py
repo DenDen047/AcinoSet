@@ -172,4 +172,3 @@ if __name__ == '__main__':
         target_cam=1,
         epipolar_cam=4
     )
-

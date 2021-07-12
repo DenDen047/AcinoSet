@@ -86,8 +86,8 @@ def get_gaze_target_from_positions(pos_h, n_pos, r_eye_pos, r=3):
     p_head = pos_h
     p_nose = n_pos
     p_r_eye = r_eye_pos
-    v_nose = (p_nose - p_head) / np.linalg.norm(p_nose - p_head)
-    v_reye = (r_eye_pos - p_head) / np.linalg.norm(r_eye_pos - p_head)
+    v_nose = _norm_vector(p_nose - p_head)
+    v_reye = _norm_vector(r_eye_pos - p_head)
 
     # TODO: Check this formulation again
     rotation = Rotation.from_mrp(np.tan(np.pi/4 / 4) * v_reye)
@@ -95,6 +95,36 @@ def get_gaze_target_from_positions(pos_h, n_pos, r_eye_pos, r=3):
     gaze_target = p_head + r * v
 
     return gaze_target
+
+
+def _norm_vector(v):
+    return v / np.linalg.norm(v)
+
+
+def get_key_angles(positions, markers):
+    # positions
+    p_head = np.squeeze(positions[:, markers.index('coe'), :])
+    p_gaze = np.squeeze(positions[:, markers.index('gaze_target'), :])
+    p_lure = np.squeeze(positions[:, markers.index('lure'), :])
+
+    # vectors
+    v_gaze = p_gaze - p_head
+    v_lure = p_lure - p_head
+    v_gaze = np.apply_along_axis(_norm_vector, axis=1, arr=v_gaze)
+    print(v_lure)
+    v_lure = np.apply_along_axis(_norm_vector, axis=1, arr=v_lure)
+    # print(v_lure)
+    sys.exit(1)
+
+    # alpha ... angle difference between v_gaze and v_lure
+    alpha = []
+    for g, l in zip(v_gaze, v_lure):
+        v = np.arccos(np.dot(g, l))
+        alpha.append(v)
+    print(alpha)
+    sys.exit(1)
+
+    return
 
 
 def get_3d_marker_coords(x, mode: str = 'default'):

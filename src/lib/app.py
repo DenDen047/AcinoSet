@@ -5,7 +5,7 @@ import cv2 as cv
 import numpy as np
 from glob import glob
 from .points import find_corners_images, EOM_curve_fit
-from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
+from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions, get_key_angles
 from .vid import proc_video, VideoProcessorCV
 from .utils import create_board_object_pts, save_points, load_points, \
     save_camera, load_camera, load_manual_points, \
@@ -218,7 +218,7 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
 def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=True):
-    nose_pos = positions[:, 0, :]  # (timestep, xyz)
+    nose_pos = positions[:, 0, :]   # (timestep, xyz)
     r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
     l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
     head_pos = np.mean([r_eye_pos, l_eye_pos], axis=0)
@@ -227,6 +227,8 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
     gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
     positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
     markers += ['coe', 'gaze_target']
+
+    # get_key_angles(positions, markers)
 
     out_fpath = os.path.join(out_dir, 'tri.pickle')
     save_optimised_cheetah(
