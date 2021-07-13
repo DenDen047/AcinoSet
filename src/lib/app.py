@@ -5,7 +5,7 @@ import cv2 as cv
 import numpy as np
 from glob import glob
 from .points import find_corners_images, EOM_curve_fit
-from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions, get_key_angles
+from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
 from .utils import create_board_object_pts, save_points, load_points, \
     save_camera, load_camera, load_manual_points, \

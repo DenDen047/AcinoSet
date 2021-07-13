@@ -101,32 +101,6 @@ def _norm_vector(v):
     return v / np.linalg.norm(v)
 
 
-def get_key_angles(positions, markers):
-    # positions
-    p_head = np.squeeze(positions[:, markers.index('coe'), :])
-    p_gaze = np.squeeze(positions[:, markers.index('gaze_target'), :])
-    p_lure = np.squeeze(positions[:, markers.index('lure'), :])
-
-    # vectors
-    v_gaze = p_gaze - p_head
-    v_lure = p_lure - p_head
-    v_gaze = np.apply_along_axis(_norm_vector, axis=1, arr=v_gaze)
-    print(v_lure)
-    v_lure = np.apply_along_axis(_norm_vector, axis=1, arr=v_lure)
-    # print(v_lure)
-    sys.exit(1)
-
-    # alpha ... angle difference between v_gaze and v_lure
-    alpha = []
-    for g, l in zip(v_gaze, v_lure):
-        v = np.arccos(np.dot(g, l))
-        alpha.append(v)
-    print(alpha)
-    sys.exit(1)
-
-    return
-
-
 def get_3d_marker_coords(x, mode: str = 'default'):
     """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
     """

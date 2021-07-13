@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 from scipy.stats import linregress
 from pyomo.opt import SolverFactory
 
-from lib import misc, utils, app
+from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from lib.misc import get_markers
 
@@ -454,7 +454,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     app.start_logging(os.path.join(OUT_DIR, 'ekf.log'))
     # camera
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams = camera_params
-    camera_params = [[K, D, R, T] for K, D, R, T in zip(k_arr, d_arr, r_arr, t_arr)]
+    camera_matrix = [[K, D, R, T] for K, D, R, T in zip(k_arr, d_arr, r_arr, t_arr)]
     # marker
     markers = misc.get_markers(mode=marker_mode)    # define DLC labels
     n_markers = len(markers)
@@ -663,9 +663,9 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         h = np.zeros((n_cams*n_markers*2))  # same as H[:, 0].copy()
         for j in range(n_cams):
             # State measurement
-            h[j*n_markers*2:(j+1)*n_markers*2] = h_function(states[:vel_idx], *camera_params[j]).flatten()
+            h[j*n_markers*2:(j+1)*n_markers*2] = h_function(states[:vel_idx], *camera_matrix[j]).flatten()
             # Jacobian - shape: (2*n_markers, n_states)
-            H[j*n_markers*2:(j+1)*n_markers*2, 0:vel_idx] = numerical_jacobian(h_function, states[:vel_idx], *camera_params[j])
+            H[j*n_markers*2:(j+1)*n_markers*2, 0:vel_idx] = numerical_jacobian(h_function, states[:vel_idx], *camera_matrix[j])
 
         # Measurement Covariance R
         likelihood = likelihood_arr[i + start_frame]
@@ -714,6 +714,10 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     app.stop_logging()
 
+    # calculate residual error
+    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors))
+
     # ========= SAVE EKF RESULTS ========
     states = dict(
         x=states_est_hist[:, :vel_idx],
@@ -729,10 +733,11 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     app.plot_cheetah_states(states['x'], states['smoothed_x'], marker_mode, fig_fpath)
 
 
-def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> Dict:
+def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}, plot: bool = False) -> Dict:
     OUT_DIR = os.path.join(DATA_DIR, 'sba')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'sba.log'))
+    markers = misc.get_markers()
 
     # save reconstruction parameters
     params['start_frame'] = start_frame
@@ -755,8 +760,11 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath,
         print(f'Saved {fig_fpath}\n')
         plt.show(block=False)
 
+    # calculate residual error
+    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors))
+
     # ========= SAVE SBA RESULTS ========
-    markers = misc.get_markers()
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
 
     for i, marker in enumerate(markers):
@@ -769,10 +777,11 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, scene_fpath,
     return params
 
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dict = {}) -> Dict:
+def tri(DATA_DIR, points_2d_df, start_frame, end_frame, camera_params, scene_fpath, params: Dict = {}) -> Dict:
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
     markers = misc.get_markers(mode='all')
+    k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
 
     # save reconstruction parameters
     params['start_frame'] = start_frame
@@ -790,30 +799,8 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, scene_fpath, params: Dic
     points_3d_df['point_index'] = points_3d_df.index
 
     # calculate residual error
-    errors = []
-    n_cam = len(k_arr)
-    for i in range(n_cam):
-        for m in markers:
-            # extract frames
-            q = f'marker == "{m}"'
-            pts_2d_df = points_2d_df.query(q + f'and camera == {i}')
-            pts_3d_df = points_3d_df.query(q)
-            valid_frames = np.intersect1d(pts_2d_df['frame'].to_numpy(), pts_3d_df['frame'].to_numpy())
-            pts_2d_df = pts_2d_df[pts_2d_df['frame'].isin(valid_frames)].sort_values(by=['frame'])
-            pts_3d_df = pts_3d_df[pts_3d_df['frame'].isin(valid_frames)].sort_values(by=['frame'])
-
-            # get 2d and reprojected points
-            pts_2d = pts_2d_df.query(q)[['x', 'y']].to_numpy()
-            pts_3d = pts_3d_df.query(q)[['x', 'y', 'z']].to_numpy()
-            if len(pts_2d_df) == 0 or len(pts_3d_df) == 0:
-                continue
-            prj_2d = project_points_fisheye(pts_3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
-
-            # compare both types of points
-            diffs = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
-            errors += diffs.tolist()
-    print('average error:', np.mean(errors))
-    print('std error:', np.std(errors))
+    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors))
 
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -933,10 +920,10 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
     print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, scene_fpath, params=vid_params)
+    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, camera_params, scene_fpath, params=vid_params)
     plt.close('all')
     # print('========== SBA ==========\n')
-    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
     # print('========== EKF ==========\n')
     # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
