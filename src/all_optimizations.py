@@ -436,8 +436,33 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         x.append([m.x[n, p].value for p in m.P])
         dx.append([m.dx[n, p].value for p in m.P])
         ddx.append([m.ddx[n, p].value for p in m.P])
+    states = dict(
+        x=x,
+        dx=dx,
+        ddx=ddx,
+    )
 
-    app.save_fte(dict(x=x, dx=dx, ddx=ddx), mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
+    # calculate residual error
+    positions_3d = np.array([misc.get_3d_marker_coords(state, mode) for state in states['x']])
+    frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
+    n_frames = len(frames)
+    points_3d = []
+    for i, m in enumerate(markers):
+        _pt3d = np.squeeze(positions_3d[:, i, :])
+        marker_arr = np.array([m] * n_frames).reshape((-1, 1))
+        _pt3d = np.hstack((frames, marker_arr, _pt3d))
+        points_3d.append(_pt3d)
+    points_3d_df = pd.DataFrame(
+        np.vstack(points_3d),
+        columns=['frame', 'marker', 'x', 'y', 'z'],
+    ).astype(
+        {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
+    )
+    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
+
+    # save pkl/mat and video files
+    app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
 
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
@@ -714,10 +739,6 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     app.stop_logging()
 
-    # calculate residual error
-    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors))
-
     # ========= SAVE EKF RESULTS ========
     states = dict(
         x=states_est_hist[:, :vel_idx],
@@ -727,7 +748,27 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         smoothed_dx=smooth_states_est_hist[:, vel_idx:acc_idx],
         smoothed_ddx=smooth_states_est_hist[:, acc_idx:]
     )
-    app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
+
+    # calculate residual error
+    positions_3d = np.array([misc.get_3d_marker_coords(state, marker_mode) for state in states['smoothed_x']])
+    frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
+    points_3d = []
+    for i, m in enumerate(markers):
+        _pt3d = np.squeeze(positions_3d[:, i, :])
+        marker_arr = np.array([m] * n_frames).reshape((-1, 1))
+        _pt3d = np.hstack((frames, marker_arr, _pt3d))
+        points_3d.append(_pt3d)
+    points_3d_df = pd.DataFrame(
+        np.vstack(points_3d),
+        columns=['frame', 'marker', 'x', 'y', 'z'],
+    ).astype(
+        {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
+    )
+    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
+
+    # save the videos
+    app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh, save_videos=True)
 
     fig_fpath = os.path.join(OUT_DIR, 'ekf.pdf')
     app.plot_cheetah_states(states['x'], states['smoothed_x'], marker_mode, fig_fpath)
@@ -755,14 +796,14 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         plt.plot(residuals['before'], label='Cost before')
         plt.plot(residuals['after'], label='Cost after')
         plt.legend()
-        fig_fpath = os.path.join(OUT_DIR, 'sba.svg')
+        fig_fpath = os.path.join(OUT_DIR, 'sba.pdf')
         plt.savefig(fig_fpath, transparent=True)
         print(f'Saved {fig_fpath}\n')
         plt.show(block=False)
 
     # calculate residual error
     errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors))
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
 
     # ========= SAVE SBA RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -800,7 +841,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, camera_params, scene_fpa
 
     # calculate residual error
     errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors))
+    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
 
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -869,7 +910,8 @@ if __name__ == '__main__':
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,0,0,-2], verbose=False)
+    # points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,0,0,-2], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,200,0,-2], verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
@@ -912,25 +954,24 @@ if __name__ == '__main__':
                 break
         if start_frame is None or end_frame is None:
             raise('Setting frames failed. Please define start and end frames manually.')
-        print(start_frame, end_frame)
     else:
         # User-defined frames
         start_frame = args.start_frame - 1  # 0 based indexing
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, camera_params, scene_fpath, params=vid_params)
-    plt.close('all')
+    # print('========== Triangulation ==========\n')
+    # _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, camera_params, scene_fpath, params=vid_params)
+    # plt.close('all')
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
     # print('========== EKF ==========\n')
     # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     # plt.close('all')
-    # print('========== FTE ==========\n')
-    # _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
+    print('========== FTE ==========\n')
+    _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    plt.close('all')
 
     if args.plot:
         print('Plotting results...')
