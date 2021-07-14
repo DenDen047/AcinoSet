@@ -106,8 +106,9 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
 
         # frame drift
         if frame_shifts is not None and frame_shifts[i] > 0:
-            # dlc_df = dlc_df.shift(periods=frame_shifts[i])
-            dlc_df['frame'] += frame_shifts[i]
+            shifted_labels = ['bodyparts', 'x', 'y', 'likelihood']
+            dlc_df[shifted_labels] = dlc_df[shifted_labels].shift(periods=frame_shifts[i])
+            # dlc_df['frame'] += frame_shifts[i]
 
         dfs.append(dlc_df)
 

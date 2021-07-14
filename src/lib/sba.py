@@ -285,7 +285,7 @@ def _sba_board_points(scene_fpath, points_fpaths, manual_points_fpath, out_fpath
 def _sba_points(scene_fpath, points_2d_df, triangulate_func, project_func):
     # load scene
     k_arr, d_arr, r_arr, t_arr, cam_res = load_scene(scene_fpath)
-    assert len(k_arr) == points_2d_df['camera'].nunique()
+    # assert len(k_arr) == points_2d_df['camera'].nunique()
 
     points_3d_df = get_pairwise_3d_points_from_df(
         points_2d_df,
