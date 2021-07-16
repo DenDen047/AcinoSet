@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import pickle
 import numpy as np
@@ -105,10 +106,20 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
         dlc_df.columns.name = ''
 
         # frame drift
-        if frame_shifts is not None and frame_shifts[i] > 0:
+        if frame_shifts is not None and frame_shifts[i] != 0:
+            bodyparts = list(dlc_df['bodyparts'].unique())
+            n_bodyparts = dlc_df['bodyparts'].nunique()
             shifted_labels = ['bodyparts', 'x', 'y', 'likelihood']
-            dlc_df[shifted_labels] = dlc_df[shifted_labels].shift(periods=frame_shifts[i])
+            n_shift = frame_shifts[i] * n_bodyparts
+            dlc_df[shifted_labels] = dlc_df[shifted_labels].shift(periods=n_shift)
+            if n_shift > 0:
+                dlc_df.loc[:n_shift-1, 'bodyparts'] = bodyparts * frame_shifts[i]
+            else:
+                a = len(dlc_df) - abs(n_shift)
+                b = len(dlc_df) - 1
+                dlc_df.loc[a:b, 'bodyparts'] = bodyparts * abs(frame_shifts[i])
             # dlc_df['frame'] += frame_shifts[i]
+        dlc_df['likelihood'] = dlc_df['likelihood'].fillna(0)
 
         dfs.append(dlc_df)
 
@@ -116,7 +127,7 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
     dlc_df = pd.DataFrame(columns=['frame', 'camera', 'marker', 'x', 'y', 'likelihood'])
     for i, df in enumerate(dfs):
         df['camera'] = i
-        df.rename(columns={'bodyparts':'marker'}, inplace=True)
+        df.rename(columns={'bodyparts': 'marker'}, inplace=True)
         dlc_df = pd.concat([dlc_df, df], sort=True, ignore_index=True)
 
     dlc_df = dlc_df[['frame', 'camera', 'marker', 'x', 'y', 'likelihood']]

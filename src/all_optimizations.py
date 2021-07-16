@@ -495,7 +495,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     idx.update(derivs)
     # other vars
     n_frames = end_frame - start_frame + 1
-    sigma_bound = 3
+    sigma_bound = 3     # if measurement residual is worse than 3 sigma, set residual to 0 and rely on predicted state only
     max_pixel_err = cam_res[0] * 2  # used in measurement covariance R
     sT = 1.0 / fps  # timestep
 
@@ -910,8 +910,8 @@ if __name__ == '__main__':
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
 
     # load measurement dataframe (pixels, likelihood)
-    # points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,0,0,-2], verbose=False)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,300,0,-2], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,0,0,-2], verbose=False)
+    # points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,200,0,-2], verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
