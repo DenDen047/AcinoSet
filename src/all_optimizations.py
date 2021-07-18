@@ -25,7 +25,7 @@ sns.set_theme()     # apply the default theme
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False):
+def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
     # === INITIAL VARIABLES ===
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'fte')
@@ -487,15 +487,15 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # save pkl/mat and video files
-    app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)
 
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
 
-    return params
+    return out_fpath
 
 
-def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}) -> Dict:
+def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}) -> str:
     # ========= INIT VARS ========
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'ekf')
@@ -816,13 +816,15 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # save the videos
-    app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, save_videos=True)
+    out_fpath = app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, save_videos=True)
 
     fig_fpath = os.path.join(OUT_DIR, 'ekf.pdf')
     app.plot_cheetah_states(states['x'], states['smoothed_x'], marker_mode, fig_fpath)
 
+    return out_fpath
 
-def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}, plot: bool = False) -> Dict:
+
+def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
     OUT_DIR = os.path.join(DATA_DIR, 'sba')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'sba.log'))
@@ -885,12 +887,12 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame)-start_frame, i] = pt_3d
 
-    app.save_sba(positions, OUT_DIR, scene_fpath, markers, start_frame)
+    out_fpath = app.save_sba(positions, OUT_DIR, scene_fpath, markers, start_frame)
 
-    return params
+    return out_fpath
 
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}) -> Dict:
+def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}) -> str:
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
     markers = misc.get_markers(mode='all')
@@ -947,9 +949,9 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors)
+    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors)
 
-    return params
+    return out_fpath
 
 
 def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
@@ -1056,7 +1058,7 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
     print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
+    tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     plt.close('all')
     print('========== SBA ==========\n')
     sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
@@ -1065,7 +1067,7 @@ if __name__ == '__main__':
     ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     plt.close('all')
     print('========== FTE ==========\n')
-    _ = fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
 
     if args.plot:
