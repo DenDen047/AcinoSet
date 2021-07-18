@@ -487,7 +487,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # save pkl/mat and video files
-    app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
+    app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)
 
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
@@ -816,7 +816,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # save the videos
-    app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh, save_videos=True)
+    app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, save_videos=True)
 
     fig_fpath = os.path.join(OUT_DIR, 'ekf.pdf')
     app.plot_cheetah_states(states['x'], states['smoothed_x'], marker_mode, fig_fpath)
@@ -836,6 +836,7 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         json.dump(params, f)
 
     # get 3D points
+    points_2d_df = points_2d_df.query(f'likelihood > {dlc_thresh}')
     points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
     points_3d_df, residuals = app.sba_points_fisheye(scene_fpath, points_2d_df)
 
@@ -884,12 +885,12 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame)-start_frame, i] = pt_3d
 
-    app.save_sba(positions, OUT_DIR, scene_fpath, markers, start_frame, dlc_thresh)
+    app.save_sba(positions, OUT_DIR, scene_fpath, markers, start_frame)
 
     return params
 
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, camera_params, scene_fpath, params: Dict = {}) -> Dict:
+def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}) -> Dict:
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
     markers = misc.get_markers(mode='all')
@@ -898,10 +899,12 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, camera_params, scene_fpa
     # save reconstruction parameters
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
+    params['dlc_thresh'] = dlc_thresh
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
 
     # triangulation
+    points_2d_df = points_2d_df.query(f'likelihood > {dlc_thresh}')
     points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
     points_3d_df = utils.get_pairwise_3d_points_from_df(
         points_2d_df,
@@ -1053,10 +1056,10 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
     print('========== Triangulation ==========\n')
-    _ = tri(DATA_DIR, filtered_points_2d_df, 0, num_frames - 1, camera_params, scene_fpath, params=vid_params)
+    _ = tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     plt.close('all')
     print('========== SBA ==========\n')
-    sba(DATA_DIR, filtered_points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
+    sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
     print('========== EKF ==========\n')
     ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)

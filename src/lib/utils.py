@@ -246,7 +246,7 @@ def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project
             projections[out_of_range_indices] = np.nan
 
             data = np.full(positions_3d.shape, np.nan)
-            data[:, :, 0:2] = projections.reshape((n_frames,-1, 2))
+            data[:, :, 0:2] = projections.reshape((n_frames, -1, 2))
 
             cam_name = os.path.splitext(os.path.basename(video_fpaths[i]))[0]
             fpath = os.path.join(out_dir, cam_name + '_' + out_fname + '.h5')
