@@ -225,7 +225,7 @@ def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, dr
 
     print(f'Loading {vname} and data.')
     try:
-        filepath = glob(vname + '*.h5')[0]
+        filepath = glob(vname + '*.h5')[0]  # TODO: this variable should be an argument
         videooutname = filepath.replace('.h5', '.mp4')
 
         df = pd.read_hdf(filepath)

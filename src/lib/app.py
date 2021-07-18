@@ -4,12 +4,10 @@ import pickle
 import cv2 as cv
 import numpy as np
 from glob import glob
+from . import utils
 from .points import find_corners_images, EOM_curve_fit
 from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
-from .utils import create_board_object_pts, save_points, load_points, \
-    save_camera, load_camera, load_manual_points, \
-    find_scene_file, save_optimised_cheetah, save_3d_cheetah_as_2d, get_pairwise_3d_points_from_df
 from .sba import _sba_board_points, _sba_points
 from .calib import calibrate_camera, calibrate_fisheye_camera, \
     calibrate_pair_extrinsics, calibrate_pair_extrinsics_fisheye, \
@@ -32,7 +30,7 @@ def extract_corners_from_images(img_dir, out_fpath, board_shape, board_edge_len,
             if os.path.basename(f) not in saved_fnames:
                 print(f'Removing {f}')
                 os.remove(f)
-    save_points(out_fpath, saved_points, saved_fnames, board_shape, board_edge_len, cam_res)
+    utils.save_points(out_fpath, saved_points, saved_fnames, board_shape, board_edge_len, cam_res)
 
 
 def initialize_marker_3d(pts_2d_df, marker, k_arr, d_arr, r_arr, t_arr, dlc_thresh_step=0.01, plot=False, **kwargs):
@@ -47,7 +45,7 @@ def initialize_marker_3d(pts_2d_df, marker, k_arr, d_arr, r_arr, t_arr, dlc_thre
     # frac = 0.7
     # while num_frames >= frac*tot_frames
     while num_frames == tot_frames:
-        pts_3d_df = get_pairwise_3d_points_from_df(
+        pts_3d_df = utils.get_pairwise_3d_points_from_df(
             pts_2d_df[pts_2d_df['likelihood'] > dlc_thresh],
             k_arr, d_arr, r_arr, t_arr, triangulate_points_fisheye,
             verbose=False
@@ -59,8 +57,8 @@ def initialize_marker_3d(pts_2d_df, marker, k_arr, d_arr, r_arr, t_arr, dlc_thre
 
     print(f"Initializing {marker}'s 3D points using an interim dlc_thresh of {dlc_thresh:.2f}")
 
-    # run get_pairwise_3d_points_from_df once more with correct dlc_thresh (verbose)
-    pts_3d_df = get_pairwise_3d_points_from_df(
+    # run utils.get_pairwise_3d_points_from_df once more with correct dlc_thresh (verbose)
+    pts_3d_df = utils.get_pairwise_3d_points_from_df(
         pts_2d_df[pts_2d_df['likelihood'] > dlc_thresh],
         k_arr, d_arr, r_arr, t_arr, triangulate_points_fisheye
     )
@@ -86,20 +84,20 @@ def initialize_marker_3d(pts_2d_df, marker, k_arr, d_arr, r_arr, t_arr, dlc_thre
 # ==========  CALIBRATION  ==========
 
 def calibrate_standard_intrinsics(points_fpath, out_fpath):
-    points, fnames, board_shape, board_edge_len, cam_res = load_points(points_fpath)
-    obj_pts = create_board_object_pts(board_shape, board_edge_len)
+    points, fnames, board_shape, board_edge_len, cam_res = utils.load_points(points_fpath)
+    obj_pts = utils.create_board_object_pts(board_shape, board_edge_len)
     k, d, r, t = calibrate_camera(obj_pts, points, cam_res)
     print('K:\n', k, '\nD:\n', d)
-    save_camera(out_fpath, cam_res, k, d)
+    utils.save_camera(out_fpath, cam_res, k, d)
     return k, d, r, t, points
 
 
 def calibrate_fisheye_intrinsics(points_fpath, out_fpath):
-    points, fnames, board_shape, board_edge_len, cam_res = load_points(points_fpath)
-    obj_pts = create_board_object_pts(board_shape, board_edge_len)
+    points, fnames, board_shape, board_edge_len, cam_res = utils.load_points(points_fpath)
+    obj_pts = utils.create_board_object_pts(board_shape, board_edge_len)
     k, d, r, t, used_points, rms = calibrate_fisheye_camera(obj_pts, points, cam_res)
     print('K:\n', k, '\nD:\n', d)
-    save_camera(out_fpath, cam_res, k, d)
+    utils.save_camera(out_fpath, cam_res, k, d)
     return k, d, r, t, used_points, rms
 
 
@@ -140,39 +138,39 @@ def sba_points_fisheye(scene_fpath, points_2d_df):
 # ==========  PLOTTING  ==========
 
 def plot_corners(points_fpath):
-    points, fnames, board_shape, board_edge_len, cam_res = load_points(points_fpath)
+    points, fnames, board_shape, board_edge_len, cam_res = utils.load_points(points_fpath)
     plot_calib_board(points, board_shape, cam_res)
 
 
 def plot_points_standard_undistort(points_fpath, camera_fpath):
-    k, d, cam_res = load_camera(camera_fpath)
-    points, _, board_shape, *_ = load_points(points_fpath)
+    k, d, cam_res = utils.load_camera(camera_fpath)
+    points, _, board_shape, *_ = utils.load_points(points_fpath)
     undistort_pts = create_undistort_point_function(k, d)
     undistorted_points = undistort_pts(points).reshape(points.shape)
     plot_calib_board(undistorted_points, board_shape, cam_res)
 
 
 def plot_points_fisheye_undistort(points_fpath, camera_fpath):
-    k, d, cam_res = load_camera(camera_fpath)
-    points, _, board_shape, *_ = load_points(points_fpath)
+    k, d, cam_res = utils.load_camera(camera_fpath)
+    points, _, board_shape, *_ = utils.load_points(points_fpath)
     undistort_pts = create_undistort_fisheye_point_function(k, d)
     undistorted_points = undistort_pts(points).reshape(points.shape)
     plot_calib_board(undistorted_points, board_shape, cam_res)
 
 
 def plot_scene(data_dir, scene_fname=None, manual_points_only=False, **kwargs):
-    *_, scene_fpath = find_scene_file(data_dir, scene_fname, verbose=False)
+    *_, scene_fpath = utils.find_scene_file(data_dir, scene_fname, verbose=False)
     points_dir = os.path.join(os.path.dirname(scene_fpath), 'points')
     pts_2d, frames = [], []
     if manual_points_only:
         points_fpaths = os.path.join(points_dir, 'manual_points.json')
-        pts_2d, frames, _ = load_manual_points(points_fpaths)
+        pts_2d, frames, _ = utils.load_manual_points(points_fpaths)
         pts_2d = pts_2d.swapaxes(0, 1)
         frames = [frames]*len(pts_2d)
     else:
         points_fpaths = sorted(glob(os.path.join(points_dir, 'points[1-9].json')))
         for fpath in points_fpaths:
-            img_pts, img_names, *_ = load_points(fpath)
+            img_pts, img_names, *_ = utils.load_points(fpath)
             pts_2d.append(img_pts)
             frames.append(img_names)
 
@@ -188,7 +186,7 @@ def plot_cheetah_states(states, smoothed_states=None, mode='default', out_fpath=
 
 def _plot_cheetah_reconstruction(positions, data_dir, scene_fname=None, labels=None, **kwargs):
     positions = np.array(positions)
-    *_, scene_fpath = find_scene_file(data_dir, scene_fname, verbose=False)
+    *_, scene_fpath = utils.find_scene_file(data_dir, scene_fname, verbose=False)
     ca = Cheetah(positions, scene_fpath, labels, project_points_fisheye, **kwargs)
     ca.animation()
 
@@ -218,6 +216,7 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
 def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save_videos=True):
+    # additional positions
     nose_pos = positions[:, 0, :]   # (timestep, xyz)
     r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
     l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
@@ -228,17 +227,17 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save
     positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
     markers += ['coe', 'gaze_target']
 
-    # get_key_angles(positions, markers)
-
+    # save 3D positions as a few file formats
     out_fpath = os.path.join(out_dir, 'tri.pickle')
-    save_optimised_cheetah(
+    utils.save_optimised_cheetah(
         positions, out_fpath,
         extra_data=dict(
             start_frame=start_frame,
             errors=errors
         )
     )
-    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
+    # save reprojected 3D points
+    _ = utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
@@ -257,8 +256,8 @@ def save_sba(positions, out_dir, scene_fpath, markers, start_frame, dlc_thresh, 
     markers += ['coe', 'gaze_target']
 
     out_fpath = os.path.join(out_dir, 'sba.pickle')
-    save_optimised_cheetah(positions, out_fpath, extra_data=dict(start_frame=start_frame))
-    save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
+    utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(start_frame=start_frame))
+    utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
@@ -285,11 +284,11 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, direct
         smoothed_positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
     out_fpath = os.path.join(out_dir, 'ekf.pickle')
-    save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
+    utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
     bodyparts = get_markers(mode)
     if directions:
         bodyparts += ['coe', 'gaze_target']
-    points_on_each_vid = save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
+    points_on_each_vid = utils.save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
@@ -306,9 +305,9 @@ def save_fte(states, mode, out_dir, scene_fpath, start_frame, dlc_thresh, save_v
     positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
     out_fpath = os.path.join(out_dir, 'fte.pickle')
-    save_optimised_cheetah(positions, out_fpath, extra_data=dict(**states, start_frame=start_frame))
+    utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(**states, start_frame=start_frame))
     bodyparts = get_markers(mode) + ['coe', 'gaze_target']
-    points_on_each_vid = save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
+    points_on_each_vid = utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
