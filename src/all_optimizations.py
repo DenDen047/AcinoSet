@@ -6,6 +6,7 @@ import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
+import seaborn as sns
 from typing import Dict, List
 from glob import glob
 from time import time
@@ -19,6 +20,8 @@ from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from lib.misc import get_markers
 
+
+sns.set_theme()     # apply the default theme
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
@@ -458,8 +461,30 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     ).astype(
         {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
     )
-    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    errors = []
+    for k, v in pix_errors.items():
+        errors += v
+    # plot the error histogram
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(errors)
+    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_xlabel('error  (pix)')
+    ax.set_ylabel('freq')
+    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
+
+    for k, e in pix_errors.items():
+        i = int(k)
+        cam_name = i + 1
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.hist(e)
+        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
+        ax.set_xlabel('error (pix)')
+        ax.set_ylabel('freq')
+        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # save pkl/mat and video files
     app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh)
@@ -764,8 +789,31 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     ).astype(
         {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
     )
-    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
+
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    errors = []
+    for k, v in pix_errors.items():
+        errors += v
+    # plot the error histogram
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(errors)
+    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_xlabel('error  (pix)')
+    ax.set_ylabel('freq')
+    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
+
+    for k, e in pix_errors.items():
+        i = int(k)
+        cam_name = i + 1
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.hist(e)
+        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
+        ax.set_xlabel('error (pix)')
+        ax.set_ylabel('freq')
+        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # save the videos
     app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, dlc_thresh, save_videos=True)
@@ -802,8 +850,31 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         plt.show(block=False)
 
     # calculate residual error
-    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    errors = []
+    for k, v in pix_errors.items():
+        errors += v
+    # plot the error histogram
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(errors)
+    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_xlabel('error  (pix)')
+    ax.set_ylabel('freq')
+    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
+
+    for k, e in pix_errors.items():
+        i = int(k)
+        cam_name = i + 1
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.hist(e)
+        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
+        ax.set_xlabel('error (pix)')
+        ax.set_ylabel('freq')
+        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
+
 
     # ========= SAVE SBA RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -840,8 +911,30 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, camera_params, scene_fpa
     points_3d_df['point_index'] = points_3d_df.index
 
     # calculate residual error
-    errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    print('error:', 'mean', np.mean(errors), 'std', np.std(errors), 'num', len(errors))
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    errors = []
+    for k, v in pix_errors.items():
+        errors += v
+    # plot the error histogram
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(errors)
+    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_xlabel('error  (pix)')
+    ax.set_ylabel('freq')
+    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
+
+    for k, e in pix_errors.items():
+        i = int(k)
+        cam_name = i + 1
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.hist(e)
+        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
+        ax.set_xlabel('error (pix)')
+        ax.set_ylabel('freq')
+        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
 
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -851,7 +944,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, camera_params, scene_fpa
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, errors)
+    app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors)
 
     return params
 

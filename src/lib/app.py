@@ -235,9 +235,7 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save
         positions, out_fpath,
         extra_data=dict(
             start_frame=start_frame,
-            errors=errors,
-            avg_error=np.mean(errors),
-            error_std=np.std(errors)
+            errors=errors
         )
     )
     save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)

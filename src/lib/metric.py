@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from typing import List
+from typing import List, Dict, Union
 
 from . import calib
 
@@ -34,10 +34,10 @@ def get_key_angles(positions, markers):
     return
 
 
-def residual_error(points_2d_df, points_3d_df, markers, camera_params) -> List[float]:
-    errors = []
+def residual_error(points_2d_df, points_3d_df, markers, camera_params) -> Dict:
     k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
     n_cam = len(k_arr)
+    error = {str(i): [] for i in range(n_cam)}
     for i in range(n_cam):
         for m in markers:
             # extract frames
@@ -59,6 +59,6 @@ def residual_error(points_2d_df, points_3d_df, markers, camera_params) -> List[f
 
             # compare both types of points
             diffs = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
-            errors += diffs.tolist()
+            error[str(i)] += diffs.tolist()
 
-    return errors
+    return error
