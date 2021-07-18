@@ -25,6 +25,36 @@ sns.set_theme()     # apply the default theme
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
+def save_error_dists(pix_errors, output_dir: str):
+    # variables
+    xlabel = 'error (pix)'
+    ylabel = 'freq'
+    errors = []
+    for k, v in pix_errors.items():
+        errors += v
+
+    # plot the error histogram
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(errors)
+    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
+
+    for k, e in pix_errors.items():
+        i = int(k)
+        cam_name = i + 1
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.hist(e)
+        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        fig.savefig(os.path.join(output_dir, "cam{}_error_hist.pdf".format(cam_name)))
+
+
 def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
     # === INITIAL VARIABLES ===
     # dirs
@@ -462,29 +492,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
     )
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    errors = []
-    for k, v in pix_errors.items():
-        errors += v
-    # plot the error histogram
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
-    ax.set_xlabel('error  (pix)')
-    ax.set_ylabel('freq')
-    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
-
-    for k, e in pix_errors.items():
-        i = int(k)
-        cam_name = i + 1
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.hist(e)
-        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
-        ax.set_xlabel('error (pix)')
-        ax.set_ylabel('freq')
-        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
+    save_error_dists(pix_errors, OUT_DIR)
 
     # save pkl/mat and video files
     out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)
@@ -791,29 +799,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     )
 
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    errors = []
-    for k, v in pix_errors.items():
-        errors += v
-    # plot the error histogram
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
-    ax.set_xlabel('error  (pix)')
-    ax.set_ylabel('freq')
-    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
-
-    for k, e in pix_errors.items():
-        i = int(k)
-        cam_name = i + 1
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.hist(e)
-        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
-        ax.set_xlabel('error (pix)')
-        ax.set_ylabel('freq')
-        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
+    save_error_dists(pix_errors, OUT_DIR)
 
     # save the videos
     out_fpath = app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, save_videos=True)
@@ -854,29 +840,7 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
 
     # calculate residual error
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    errors = []
-    for k, v in pix_errors.items():
-        errors += v
-    # plot the error histogram
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
-    ax.set_xlabel('error  (pix)')
-    ax.set_ylabel('freq')
-    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
-
-    for k, e in pix_errors.items():
-        i = int(k)
-        cam_name = i + 1
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.hist(e)
-        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
-        ax.set_xlabel('error (pix)')
-        ax.set_ylabel('freq')
-        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
+    save_error_dists(pix_errors, OUT_DIR)
 
 
     # ========= SAVE SBA RESULTS ========
@@ -917,29 +881,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
 
     # calculate residual error
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    errors = []
-    for k, v in pix_errors.items():
-        errors += v
-    # plot the error histogram
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
-    ax.set_xlabel('error  (pix)')
-    ax.set_ylabel('freq')
-    fig.savefig(os.path.join(OUT_DIR, "overall_error_hist.pdf"))
-
-    for k, e in pix_errors.items():
-        i = int(k)
-        cam_name = i + 1
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.hist(e)
-        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
-        ax.set_xlabel('error (pix)')
-        ax.set_ylabel('freq')
-        fig.savefig(os.path.join(OUT_DIR, "cam{}_error_hist.pdf".format(cam_name)))
+    save_error_dists(pix_errors, OUT_DIR)
 
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
