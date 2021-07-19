@@ -2,12 +2,14 @@ import os
 import sys
 import json
 import numpy as np
+import scipy
 from numpy.core.defchararray import count
 import itertools
 import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
 from typing import Dict, List
 from glob import glob
 from time import time
@@ -40,13 +42,39 @@ def save_error_dists(pix_errors, output_dir: str):
     xlabel = 'error (pix)'
     ylabel = 'freq'
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
+    def _histogram(data, title, xlabel, ylabel, fpath):
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        # histgram
+        ax.hist(data, bins=20, density=True)
+        # fit
+        xmin, xmax = ax.get_xlim()
+        x = np.linspace(xmin, xmax, 100)
+        # normal distribution
+        mu, sigma = scipy.stats.norm.fit(data)
+        best_fit_line = scipy.stats.norm.pdf(x, mu, sigma)
+        ax.plot(x, best_fit_line, label=r'normal ($\mu=${:.3f}, $\sigma=${:.3f})'.format(mu, sigma))
+        # lognormal distribution
+        s, loc, scale = scipy.stats.lognorm.fit(data)
+        best_fit_line = scipy.stats.lognorm.pdf(x, s, loc, scale)
+        ax.plot(x, best_fit_line, label=r'lognormal ($s=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(s, loc, scale))
+        # gamma distribution
+        a, loc, scale = scipy.stats.gamma.fit(data)
+        best_fit_line = scipy.stats.gamma.pdf(x, a, loc, scale)
+        ax.plot(x, best_fit_line, label=r'gamma ($\alpha=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(s, loc, scale))
+        # plot settings
+        ax.set_title(title)
+        ax.legend()
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        fig.savefig(fpath)
+
+    _histogram(
+        errors,
+        title='Overall pixel errors (N={})'.format(len(errors)),
+        xlabel=xlabel, ylabel=ylabel,
+        fpath=os.path.join(output_dir, "overall_error_hist.pdf")
+    )
 
     hist_data = []
     labels = []
@@ -55,6 +83,14 @@ def save_error_dists(pix_errors, output_dir: str):
         e = df['pixel_residual'].tolist()
         hist_data.append(e)
         labels.append('cam{} (N={})'.format(i+1, len(e)))
+
+        cam_name = i + 1
+        _histogram(
+            e,
+            title='Camera{} pixel errors (N={})'.format(cam_name, len(e)),
+            xlabel=xlabel, ylabel=ylabel,
+            fpath=os.path.join(output_dir, "cam{}_error_hist.pdf".format(cam_name))
+        )
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
@@ -73,7 +109,7 @@ def save_error_dists(pix_errors, output_dir: str):
     for k, df in pix_errors.items():
         e = df['pixel_residual'].tolist()
         d = df['camera_distance'].tolist()
-        ax.scatter(e, d, alpha=0.5)
+        ax.scatter(d, e, alpha=0.5)
         errors += e
         distances += d
     coef = np.corrcoef(errors, distances)
