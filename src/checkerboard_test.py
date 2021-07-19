@@ -25,6 +25,62 @@ import cv2 as cv
 
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
+# metrics
+def save_error_dists(pix_errors, output_dir: str):
+    # variables
+    errors = []
+    for k, df in pix_errors.items():
+        errors += df['pixel_residual'].tolist()
+    distances = []
+    for k, df in pix_errors.items():
+        distances += df['camera_distance'].tolist()
+
+    # plot the error histogram
+    xlabel = 'error (pix)'
+    ylabel = 'freq'
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(errors)
+    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
+
+    hist_data = []
+    labels = []
+    for k, df in pix_errors.items():
+        i = int(k)
+        e = df['pixel_residual'].tolist()
+        hist_data.append(e)
+        labels.append('cam{} (N={})'.format(i+1, len(e)))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(hist_data, bins=10, density=True, histtype='bar')
+    ax.legend(labels)
+    ax.set_title('Reprojection pixel errors')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    fig.savefig(os.path.join(output_dir, "cams_error_hist.pdf"))
+
+    # the relation between camera distance and pixel errors
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    errors = []
+    distances = []
+    for k, df in pix_errors.items():
+        e = df['pixel_residual'].tolist()
+        d = df['camera_distance'].tolist()
+        ax.scatter(e, d, alpha=0.5)
+        errors += e
+        distances += d
+    coef = np.corrcoef(errors, distances)
+    ax.set_title('All camera errors (N={}, coef={:.3f})'.format(len(errors), coef[0,1]))
+    ax.set_xlabel('Radial distance between estimated 3D point and camera')
+    ax.set_ylabel('Error (pix)')
+    ax.legend([f'cam{str(i+1)}' for i in range(len(pix_errors))])
+    fig.savefig(os.path.join(output_dir, "distance_vs_error.pdf"))
 
 
 # draw
@@ -115,10 +171,6 @@ def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
     parser.add_argument('--data_dir', type=str, help='The file path to the flick/run to be optimized.')
-    parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
-    parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
-    parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
-    parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
     DATA_DIR = os.path.normpath(args.data_dir)
@@ -130,13 +182,3 @@ if __name__ == '__main__':
         target_cam=2
     )
     plt.close('all')
-
-    if args.plot:
-        print('Plotting results...')
-        data_fpaths = [
-            os.path.join(DATA_DIR, 'tri', 'tri.pickle'),    # plot is too busy when tri is included
-            os.path.join(DATA_DIR, 'sba', 'sba.pickle'),
-            os.path.join(DATA_DIR, 'ekf', 'ekf.pickle'),
-            os.path.join(DATA_DIR, 'fte', 'fte.pickle')
-        ]
-        app.plot_multiple_cheetah_reconstructions(data_fpaths, reprojections=False, dark_mode=True)
