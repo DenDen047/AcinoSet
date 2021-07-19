@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import pandas as pd
 from typing import List, Dict, Union
 
 from . import calib
@@ -37,7 +38,7 @@ def get_key_angles(positions, markers):
 def residual_error(points_2d_df, points_3d_df, markers, camera_params) -> Dict:
     k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
     n_cam = len(k_arr)
-    error = {str(i): [] for i in range(n_cam)}
+    error = {str(i): None for i in range(n_cam)}
     for i in range(n_cam):
         for m in markers:
             # extract frames
@@ -51,14 +52,25 @@ def residual_error(points_2d_df, points_3d_df, markers, camera_params) -> Dict:
             pts_3d_df = pts_3d_df[pts_3d_df['frame'].isin(valid_frames)].sort_values(by=['frame'])
 
             # get 2d and reprojected points
+            frames = pts_2d_df.query(q)['frame'].to_numpy()
             pts_2d = pts_2d_df.query(q)[['x', 'y']].to_numpy()
             pts_3d = pts_3d_df.query(q)[['x', 'y', 'z']].to_numpy()
             if len(pts_2d_df) == 0 or len(pts_3d_df) == 0:
                 continue
             prj_2d = calib.project_points_fisheye(pts_3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
 
+            # camera distance
+            cam_pos = np.squeeze(t_arr[i, :, :])
+            cam_dist = np.sqrt(np.sum((pts_3d - cam_pos) ** 2, axis=1))
+
             # compare both types of points
-            diffs = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
-            error[str(i)] += diffs.tolist()
+            residual = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
+
+            # make the result dataframe
+            df = pd.DataFrame(
+                np.vstack((frames, cam_dist, residual)).T,
+                columns=['frame', 'camera_distance', 'pixel_residual']
+            )
+            error[str(i)] = df
 
     return error

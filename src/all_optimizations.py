@@ -27,13 +27,17 @@ plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 def save_error_dists(pix_errors, output_dir: str):
     # variables
-    xlabel = 'error (pix)'
-    ylabel = 'freq'
     errors = []
-    for k, v in pix_errors.items():
-        errors += v
+    for k, df in pix_errors.items():
+        errors += df['pixel_residual'].tolist()
+    distances = []
+    for k, df in pix_errors.items():
+        distances += df['camera_distance'].tolist()
 
     # plot the error histogram
+    xlabel = 'error (pix)'
+    ylabel = 'freq'
+
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     ax.hist(errors)
@@ -42,9 +46,10 @@ def save_error_dists(pix_errors, output_dir: str):
     ax.set_ylabel(ylabel)
     fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
 
-    for k, e in pix_errors.items():
+    for k, df in pix_errors.items():
         i = int(k)
         cam_name = i + 1
+        e = df['pixel_residual'].tolist()
 
         fig = plt.figure()
         ax = fig.add_subplot(1,1,1)
@@ -53,6 +58,24 @@ def save_error_dists(pix_errors, output_dir: str):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         fig.savefig(os.path.join(output_dir, "cam{}_error_hist.pdf".format(cam_name)))
+
+    # the relation between camera distance and pixel errors
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    errors = []
+    distances = []
+    for k, df in pix_errors.items():
+        e = df['pixel_residual'].tolist()
+        d = df['camera_distance'].tolist()
+        ax.scatter(e, d, alpha=0.5)
+        errors += e
+        distances += d
+    coef = np.corrcoef(errors, distances)
+    ax.set_title('All camera errors (N={}, coef={:.3f})'.format(len(errors), coef[0,1]))
+    ax.set_xlabel('Radial distance between estimated 3D point and camera')
+    ax.set_ylabel('Error (pix)')
+    ax.legend([f'cam{str(i+1)}' for i in range(len(pix_errors))])
+    fig.savefig(os.path.join(output_dir, "distance_vs_error.pdf"))
 
 
 def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
