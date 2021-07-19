@@ -46,18 +46,22 @@ def save_error_dists(pix_errors, output_dir: str):
     ax.set_ylabel(ylabel)
     fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
 
+    hist_data = []
+    labels = []
     for k, df in pix_errors.items():
         i = int(k)
-        cam_name = i + 1
         e = df['pixel_residual'].tolist()
+        hist_data.append(e)
+        labels.append('cam{} (N={})'.format(i+1, len(e)))
 
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.hist(e)
-        ax.set_title('Camera{} pixel errors (N={})'.format(cam_name, len(e)))
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        fig.savefig(os.path.join(output_dir, "cam{}_error_hist.pdf".format(cam_name)))
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.hist(hist_data, bins=10, density=True, histtype='bar')
+    ax.legend(labels)
+    ax.set_title('Reprojection pixel errors')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    fig.savefig(os.path.join(output_dir, "cams_error_hist.pdf"))
 
     # the relation between camera distance and pixel errors
     fig = plt.figure()
