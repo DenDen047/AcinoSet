@@ -3,6 +3,7 @@ import sys
 import json
 import numpy as np
 from numpy.core.defchararray import count
+import itertools
 import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
@@ -16,7 +17,7 @@ from argparse import ArgumentParser
 from scipy.stats import linregress
 from pyomo.opt import SolverFactory
 
-from lib import misc, utils, app, vid, plotting, points
+from lib import misc, utils, app, vid, plotting, points, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from lib.misc import get_markers
 
@@ -162,51 +163,50 @@ def get_hist(DATA_DIR):
     # load scene
     k_arr, d_arr, r_arr, t_arr, cam_res = utils.load_scene(scene_fpath, verbose=False)
     n_cams = len(k_arr)
+    camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, n_cams)
     assert n_cams == len(points_fpaths)
 
+    # load checkerboard points
+    nx, ny = 6, 9
+    checkerboard_info = {f'{x}_{y}': [] for x, y in itertools.product(range(nx), range(ny))}
     pts_2d = []
+    cameras = []
     frames = []
-    for fpath in points_fpaths:
+    markers = []
+    xs = []
+    ys = []
+    for cam_i, fpath in enumerate(points_fpaths):
         img_pts, img_names, *_ = utils.load_points(fpath)
         pts_2d.append(img_pts)
-        frames.append(img_names)
+        frame = [int(s[3:8]) for s in img_names] # img file name -> frame number
+
+        n = img_pts.shape[0]
+        assert n == len(frame)
+
+        for x, y in itertools.product(range(nx), range(ny)):
+            frames += frame
+            cameras += [cam_i] * n
+            markers += [f'{x}_{y}'] * n
+            xs += list(img_pts[:, y, x, 0])
+            ys += list(img_pts[:, y, x, 1])
+
+    points_2d_df = pd.DataFrame(
+        np.array([frames, cameras, markers, xs, ys]).T,
+        columns=['frame', 'camera', 'marker', 'x','y']
+    )
+    points_2d_df = points_2d_df.astype({'frame': 'int32', 'camera': 'int32', 'marker': 'str', 'x': 'float64', 'y': 'float64'})
 
     # estimate 3d position of checkerboard
-    a = cam_i
-    b = (cam_i + 1) % n_cams
-    img_pts_1, img_pts_2, fnames = points.common_image_points(
-        pts_2d[a], frames[a],
-        pts_2d[b], frames[b]
-    )
-    assert len(fnames) > 0
-
-    # get target frame
-    pprint(fnames)
-    idx = 2
-    target_frame_name = fnames[idx]
-    img_pts_1 = img_pts_1[idx]
-    img_pts_2 = img_pts_2[idx]
-    print('Target frame:', target_frame_name)
-
-    # load target frame
-    target_frame_fpath = os.path.join(frame_dir, target_frame_name)
-    image = cv.imread(target_frame_fpath, cv.IMREAD_COLOR)
-    assert image is not None
-    pts_3d = triangulate_points_fisheye(
-        img_pts_1, img_pts_2,
-        k_arr[a], d_arr[a], r_arr[a], t_arr[a],
-        k_arr[b], d_arr[b], r_arr[b], t_arr[b]
+    points_3d_df = utils.get_pairwise_3d_points_from_df(
+        points_2d_df,
+        k_arr, d_arr.reshape((-1,4)), r_arr, t_arr,
+        triangulate_points_fisheye
     )
 
-    # 3d to 2d
-    pts_2d = project_points_fisheye(pts_3d, k_arr[cam_i], d_arr[cam_i], r_arr[cam_i], t_arr[cam_i])
-
-    # draw
-    # result = drawdots(image, pts_2d)
-    result = drawdots(image, img_pts_1.reshape((-1, 2)))
-
-    # save
-    cv.imwrite(os.path.join(calib_dir, f'cam{target_cam}_'+target_frame_name), result)
+    # calculate residual error
+    markers = points_2d_df['marker'].unique()
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    save_error_dists(pix_errors, calib_dir)
 
 
 # ========= MAIN ========
@@ -222,7 +222,4 @@ if __name__ == '__main__':
     #     DATA_DIR,
     #     target_cam=2
     # )
-    _ = get_hist(
-        DATA_DIR,
-        target_cam=2
-    )
+    _ = get_hist(DATA_DIR)
