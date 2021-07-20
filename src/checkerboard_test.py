@@ -9,7 +9,7 @@ import sympy as sp
 import pandas as pd
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
+import seaborn as sns
 from typing import Dict, List
 from glob import glob
 from time import time
@@ -26,6 +26,7 @@ from lib.misc import get_markers
 import cv2 as cv
 
 
+sns.set_theme()     # apply the default theme
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 # metrics
@@ -33,7 +34,8 @@ def save_error_dists(pix_errors, output_dir: str):
     # variables
     errors = []
     for k, df in pix_errors.items():
-        errors += df['pixel_residual'].tolist() # df['error_u'].tolist() + df['error_v'].tolist()
+        # errors += df['pixel_residual'].tolist()
+        errors += df['error_u'].tolist() + df['error_v'].tolist()
     distances = []
     for k, df in pix_errors.items():
         distances += df['camera_distance'].tolist()
@@ -65,11 +67,16 @@ def save_error_dists(pix_errors, output_dir: str):
         ax.plot(x, best_fit_line, label=r'gamma ($\alpha=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(a, loc, scale))
 
         # key values
+        c = sns.color_palette()
+        # median
         med = np.median(data)
-        ax.axvline(med, label='median')
+        ax.axvline(med, color=c[1], linestyle='--', label='median = {:.3f}'.format(med))
+        # sigma-hat
+        mad = scipy.stats.median_abs_deviation(data, scale='normal')
+        ax.axvline(mad, color=c[2], linestyle='--', label='MAD = {:.3f}'.format(mad))
 
         # plot settings
-        ax.set_title(title + ' (N={}, median={:3f})'.format(len(data), med))
+        ax.set_title(title + ' (N={})'.format(len(data)))
         ax.legend()
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
@@ -86,7 +93,8 @@ def save_error_dists(pix_errors, output_dir: str):
     labels = []
     for k, df in pix_errors.items():
         i = int(k)
-        e = df['pixel_residual'].tolist() # df['error_u'].tolist() + df['error_v'].tolist()
+        # e = df['pixel_residual'].tolist()
+        e = df['error_u'].tolist() + df['error_v'].tolist()
         hist_data.append(e)
         labels.append('cam{} (N={})'.format(i+1, len(e)))
 
