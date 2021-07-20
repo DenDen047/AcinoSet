@@ -33,7 +33,7 @@ def save_error_dists(pix_errors, output_dir: str):
     # variables
     errors = []
     for k, df in pix_errors.items():
-        errors += df['pixel_residual'].tolist()
+        errors += df['pixel_residual'].tolist() # df['error_u'].tolist() + df['error_v'].tolist()
     distances = []
     for k, df in pix_errors.items():
         distances += df['camera_distance'].tolist()
@@ -47,6 +47,7 @@ def save_error_dists(pix_errors, output_dir: str):
         ax = fig.add_subplot(1,1,1)
         # histgram
         ax.hist(data, bins=20, density=True)
+
         # fit
         xmin, xmax = ax.get_xlim()
         x = np.linspace(xmin, xmax, 100)
@@ -61,9 +62,14 @@ def save_error_dists(pix_errors, output_dir: str):
         # gamma distribution
         a, loc, scale = scipy.stats.gamma.fit(data)
         best_fit_line = scipy.stats.gamma.pdf(x, a, loc, scale)
-        ax.plot(x, best_fit_line, label=r'gamma ($\alpha=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(s, loc, scale))
+        ax.plot(x, best_fit_line, label=r'gamma ($\alpha=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(a, loc, scale))
+
+        # key values
+        med = np.median(data)
+        ax.axvline(med, label='median')
+
         # plot settings
-        ax.set_title(title)
+        ax.set_title(title + ' (N={}, median={:3f})'.format(len(data), med))
         ax.legend()
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
@@ -71,7 +77,7 @@ def save_error_dists(pix_errors, output_dir: str):
 
     _histogram(
         errors,
-        title='Overall pixel errors (N={})'.format(len(errors)),
+        title='Overall pixel errors',
         xlabel=xlabel, ylabel=ylabel,
         fpath=os.path.join(output_dir, "overall_error_hist.pdf")
     )
@@ -80,21 +86,21 @@ def save_error_dists(pix_errors, output_dir: str):
     labels = []
     for k, df in pix_errors.items():
         i = int(k)
-        e = df['pixel_residual'].tolist()
+        e = df['pixel_residual'].tolist() # df['error_u'].tolist() + df['error_v'].tolist()
         hist_data.append(e)
         labels.append('cam{} (N={})'.format(i+1, len(e)))
 
         cam_name = i + 1
         _histogram(
             e,
-            title='Camera{} pixel errors (N={})'.format(cam_name, len(e)),
+            title='Camera{} pixel errors'.format(cam_name, len(e)),
             xlabel=xlabel, ylabel=ylabel,
             fpath=os.path.join(output_dir, "cam{}_error_hist.pdf".format(cam_name))
         )
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
-    ax.hist(hist_data, bins=10, density=True, histtype='bar')
+    ax.hist(hist_data, bins=20, histtype='bar')
     ax.legend(labels)
     ax.set_title('Reprojection pixel errors')
     ax.set_xlabel(xlabel)

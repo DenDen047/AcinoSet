@@ -65,11 +65,12 @@ def residual_error(points_2d_df, points_3d_df, markers, camera_params) -> Dict:
 
             # compare both types of points
             residual = np.sqrt(np.sum((pts_2d - prj_2d) ** 2, axis=1))
+            error_uv = pts_2d - prj_2d
 
             # make the result dataframe
             df = pd.DataFrame(
-                np.vstack((frames, cam_dist, residual)).T,
-                columns=['frame', 'camera_distance', 'pixel_residual']
+                np.vstack((frames, cam_dist, residual, error_uv.T)).T,
+                columns=['frame', 'camera_distance', 'pixel_residual', 'error_u', 'error_v']
             )
             error[str(i)] = df
 
