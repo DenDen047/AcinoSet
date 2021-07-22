@@ -556,7 +556,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     # other vars
     n_frames = end_frame - start_frame + 1
     sigma_bound = 3     # if measurement residual is worse than 3 sigma, set residual to 0 and rely on predicted state only
-    max_pixel_err = cam_res[0] * 2  # used in measurement covariance R
+    max_pixel_err = cam_res[0]  # used in measurement covariance R
     sT = 1.0 / fps  # timestep
 
     # save reconstruction parameters
@@ -690,7 +690,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     # PROCESS COVARIANCE Q - how 'noisy' the constant acceleration model is
     qb_list = [
-        5.0, 5.0, 5.0, 10.0, 10.0, 10.0,    # head x, y, z, phi, theta, psi in inertial
+        60.0, 60.0, 60.0, 10.0, 10.0, 10.0,    # head x, y, z, phi, theta, psi in inertial
         5.0, 5.0, 25.0, 5.0,   # neck length, phi, theta, psi
         50.0,             # front-torso theta
         5.0, 50.0, 25.0,  # back torso phi, theta, psi
@@ -704,7 +704,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     ]
     qb_list = qb_list[:n_pose_params]
 
-    qb = (np.diag(qb_list)/2)**2
+    qb = np.diag(qb_list)**2
     Q = np.block([
         [sT**4/4 * qb, sT**3/2 * qb, sT**2/2 * qb],
         [sT**3/2 * qb, sT**2 * qb, sT * qb],
@@ -712,7 +712,11 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     ])
 
     # MEASUREMENT COVARIANCE R
-    dlc_cov = 3**2
+    dlc_cov = 2     # 5**2
+    cal_covs = [0.137, 0.236, 0.176, 0.298, 0.087, 0.116]
+    # cal_covs = [0.5, 2.271, 1.795, 0.310, 0.087, 0.116]
+    # cal_covs = [0., 0., 0., 0., 0., 0.]
+    assert n_cams == len(cal_covs)
 
     # State prediction function jacobian F - shape: (n_states, n_states)
     rng = np.arange(n_states - vel_idx)
@@ -755,7 +759,12 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         # Measurement Covariance R
         likelihood = likelihood_arr[i + start_frame]
         bad_point_mask = np.repeat(likelihood<dlc_thresh, 2)
-        dlc_cov_arr = dlc_cov * np.ones((n_cams*n_markers*2))
+        # dlc_cov_arr = dlc_cov * np.ones((n_cams*n_markers*2))
+        dlc_cov_arr = []
+        for cov in cal_covs:
+            dlc_cov_arr += [dlc_cov + cov] * (n_markers*2)
+        dlc_cov_arr = np.array(dlc_cov_arr)
+
         dlc_cov_arr[bad_point_mask] = max_pixel_err # change this to be independent of cam res?
         R = np.diag(dlc_cov_arr**2)
 
@@ -768,7 +777,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         temp = sigma_bound * np.sqrt(np.diag(S))    # if measurement residual is worse than 3 sigma, set residual to 0 and rely on predicted state only
         for j in range(0, len(residual), 2):
             if np.abs(residual[j])>temp[j] or np.abs(residual[j+1])>temp[j+1]:
-                residual[j:j+2] = 0
+                # residual[j:j+2] = 0
                 outliers_ignored += 1
 
         # Kalman Gain
@@ -784,6 +793,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     print('EKF complete!')
     print('Outliers ignored:', outliers_ignored)
+    # sys.exit(1)
 
     # Run Kalman Smoother
     smooth_states_est_hist = states_est_hist.copy()
@@ -977,7 +987,7 @@ if __name__ == '__main__':
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,1,0,0,-2], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,-1,0,0,0], verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
@@ -1026,18 +1036,18 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
-    plt.close('all')
-    print('========== SBA ==========\n')
-    sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== Triangulation ==========\n')
+    # tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
+    # plt.close('all')
+    # print('========== SBA ==========\n')
+    # sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
     print('========== EKF ==========\n')
     ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     plt.close('all')
-    print('========== FTE ==========\n')
-    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # print('========== FTE ==========\n')
+    # fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
 
     if args.plot:
         print('Plotting results...')

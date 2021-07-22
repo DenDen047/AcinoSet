@@ -217,6 +217,8 @@ def get_hist(DATA_DIR):
     calib_dir = os.path.join(DATA_DIR, 'extrinsic_calib')
     scene_fpath = os.path.join(calib_dir, '6_cam_scene_sba.json')
     points_fpaths = sorted(glob(os.path.join(calib_dir, 'points', 'points[1-9].json')))
+    frame_shifts = [0,1,-1,0,0,0]
+    # frame_shifts = [0,0,0,0,0,0]
 
     # load scene
     k_arr, d_arr, r_arr, t_arr, cam_res = utils.load_scene(scene_fpath, verbose=False)
@@ -233,10 +235,10 @@ def get_hist(DATA_DIR):
     markers = []
     xs = []
     ys = []
-    for cam_i, fpath in enumerate(points_fpaths):
+    for (cam_i, fpath), shift in zip(enumerate(points_fpaths), frame_shifts):
         img_pts, img_names, *_ = utils.load_points(fpath)
         pts_2d.append(img_pts)
-        frame = [int(s[3:8]) for s in img_names] # img file name -> frame number
+        frame = [int(s[3:8]) + shift for s in img_names] # img file name -> frame number
 
         n = img_pts.shape[0]
         assert n == len(frame)
