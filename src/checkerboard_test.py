@@ -34,8 +34,8 @@ def save_error_dists(pix_errors, output_dir: str):
     # variables
     errors = []
     for k, df in pix_errors.items():
-        # errors += df['pixel_residual'].tolist()
-        errors += df['error_u'].tolist() + df['error_v'].tolist()
+        # errors.append(df['pixel_residual'].tolist())
+        errors.append(df['error_u'].tolist() + df['error_v'].tolist())
     distances = []
     for k, df in pix_errors.items():
         distances += df['camera_distance'].tolist()
@@ -52,38 +52,48 @@ def save_error_dists(pix_errors, output_dir: str):
 
         # fit
         xmin, xmax = ax.get_xlim()
-        x = np.linspace(xmin, xmax, 100)
+        x = np.linspace(xmin, xmax, 1000)
         # normal distribution
         mu, sigma = scipy.stats.norm.fit(data)
         best_fit_line = scipy.stats.norm.pdf(x, mu, sigma)
         ax.plot(x, best_fit_line, label=r'normal ($\mu=${:.3f}, $\sigma=${:.3f})'.format(mu, sigma))
         # lognormal distribution
-        s, loc, scale = scipy.stats.lognorm.fit(data)
-        best_fit_line = scipy.stats.lognorm.pdf(x, s, loc, scale)
-        ax.plot(x, best_fit_line, label=r'lognormal ($s=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(s, loc, scale))
-        # gamma distribution
-        a, loc, scale = scipy.stats.gamma.fit(data)
-        best_fit_line = scipy.stats.gamma.pdf(x, a, loc, scale)
-        ax.plot(x, best_fit_line, label=r'gamma ($\alpha=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(a, loc, scale))
+        sigma, loc, scale = scipy.stats.lognorm.fit(data)
+        best_fit_line = scipy.stats.lognorm.pdf(x, sigma, loc, scale)
+        ax.plot(x, best_fit_line, label=r'lognormal ($\sigma=${:.3f}, loc$=${:.3f}, scale$=${:.3f})'.format(sigma, loc, scale))
 
         # key values
         c = sns.color_palette()
         # median
         med = np.median(data)
-        ax.axvline(med, color=c[1], linestyle='--', label='median = {:.3f}'.format(med))
+        ax.axvline(med, color=c[1], linestyle='--', label='median={:.3f}'.format(med))
         # sigma-hat
         mad = scipy.stats.median_abs_deviation(data, scale='normal')
-        ax.axvline(mad, color=c[2], linestyle='--', label='MAD = {:.3f}'.format(mad))
+        ax.axvline(mad, color=c[2], linestyle='--', label='MAD={:.3f}'.format(mad))
+        # three sigma
+        sigma3 = 3 * sigma
+        ax.axvline(sigma3, color=c[3], linestyle='--', label=r'$3\sigma=${:.3f}'.format(sigma3))
+        # describe
+        scores = pd.Series(data).describe()
+        textstr = '\n'.join(['{}: {:.2f}'.format(idx, val) for idx, val in scores.iteritems()])
 
         # plot settings
         ax.set_title(title + ' (N={})'.format(len(data)))
         ax.legend()
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
+        ax.text(
+            0.8, 0.5,
+            textstr,
+            transform=ax.transAxes,
+            fontsize=8,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
         fig.savefig(fpath)
 
     _histogram(
-        errors,
+        list(itertools.chain.from_iterable(errors)),
         title='Overall pixel errors',
         xlabel=xlabel, ylabel=ylabel,
         fpath=os.path.join(output_dir, "overall_error_hist.pdf")
@@ -91,10 +101,8 @@ def save_error_dists(pix_errors, output_dir: str):
 
     hist_data = []
     labels = []
-    for k, df in pix_errors.items():
+    for e, (k, df) in zip(errors, pix_errors.items()):
         i = int(k)
-        # e = df['pixel_residual'].tolist()
-        e = df['error_u'].tolist() + df['error_v'].tolist()
         hist_data.append(e)
         labels.append('cam{} (N={})'.format(i+1, len(e)))
 

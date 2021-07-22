@@ -755,7 +755,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         # Measurement Covariance R
         likelihood = likelihood_arr[i + start_frame]
         bad_point_mask = np.repeat(likelihood<dlc_thresh, 2)
-        dlc_cov_arr = dlc_cov*np.ones((n_cams*n_markers*2))
+        dlc_cov_arr = dlc_cov * np.ones((n_cams*n_markers*2))
         dlc_cov_arr[bad_point_mask] = max_pixel_err # change this to be independent of cam res?
         R = np.diag(dlc_cov_arr**2)
 
