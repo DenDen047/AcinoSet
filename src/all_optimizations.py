@@ -25,7 +25,7 @@ sns.set_theme()     # apply the default theme
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 
 
-def save_error_dists(pix_errors, output_dir: str):
+def save_error_dists(pix_errors, output_dir: str) -> float:
     # variables
     errors = []
     for k, df in pix_errors.items():
@@ -80,6 +80,8 @@ def save_error_dists(pix_errors, output_dir: str):
     ax.set_ylabel('Error (pix)')
     ax.legend([f'cam{str(i+1)}' for i in range(len(pix_errors))])
     fig.savefig(os.path.join(output_dir, "distance_vs_error.pdf"))
+
+    return np.mean(errors)
 
 
 def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
@@ -793,7 +795,6 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         P_est_hist[i] = P
 
     print('EKF complete!')
-    print('Outliers ignored:', outliers_ignored)
 
     # Run Kalman Smoother
     smooth_states_est_hist = states_est_hist.copy()
@@ -802,10 +803,9 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         A = P_est_hist[i] @ F.T @ np.linalg.inv(P_pred_hist[i+1])
         smooth_states_est_hist[i] = states_est_hist[i] + A @ (smooth_states_est_hist[i+1] - states_pred_hist[i+1])
         smooth_P_est_hist[i] = P_est_hist[i] + A @ (smooth_P_est_hist[i+1] - P_pred_hist[i+1]) @ A.T
+    print('Kalman Smoother complete!')
 
-    t1 = time()
-    print('\nKalman Smoother complete!\n')
-    print('Optimization took {0:.2f} seconds\n'.format(t1 - t0))
+    opt_time = time() - t0
 
     app.stop_logging()
 
@@ -836,7 +836,16 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     )
 
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    save_error_dists(pix_errors, OUT_DIR)
+    mae_all = save_error_dists(pix_errors, OUT_DIR)
+    maes = []
+    for k, df in pix_errors.items():
+        maes.append(round(df['pixel_residual'].mean(), 3))
+
+    print(f'\tOutliers ignored: {outliers_ignored}')
+    print('\tOptimization took {0:.2f} seconds'.format(opt_time))
+    print('\tReprojection MAEs: {}'.format(maes))
+    print('\tReprojection MAE: {:.3f} pix'.format(mae_all))
+    sys.exit(1)
 
     # save the videos
     out_fpath = app.save_ekf(states, marker_mode, OUT_DIR, scene_fpath, start_frame, save_videos=True)
@@ -987,7 +996,7 @@ if __name__ == '__main__':
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,-1,0,0,0,0], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,0,0,0,0], verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
