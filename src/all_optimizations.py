@@ -592,12 +592,12 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         eps = 1e-3
 
         fx = func(x, *args).flatten()
-        xpeturb=x.copy()
+        xpeturb = x.copy()
         jac = np.empty((len(fx), n))
         for i in range(n):
-            xpeturb[i] = xpeturb[i]+eps
-            jac[:,i] = (func(xpeturb, *args).flatten() - fx)/eps
-            xpeturb[i]=x[i]
+            xpeturb[i] = xpeturb[i] + eps
+            jac[:,i] = (func(xpeturb, *args).flatten() - fx) / eps
+            xpeturb[i] = x[i]
 
         return jac
 
@@ -690,7 +690,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     # PROCESS COVARIANCE Q - how 'noisy' the constant acceleration model is
     qb_list = [
-        60.0, 60.0, 60.0, 10.0, 10.0, 10.0,    # head x, y, z, phi, theta, psi in inertial
+        5.0, 5.0, 5.0, 10.0, 10.0, 10.0,    # head x, y, z, phi, theta, psi in inertial
         5.0, 5.0, 25.0, 5.0,   # neck length, phi, theta, psi
         50.0,             # front-torso theta
         5.0, 50.0, 25.0,  # back torso phi, theta, psi
@@ -704,7 +704,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     ]
     qb_list = qb_list[:n_pose_params]
 
-    qb = np.diag(qb_list)**2
+    qb = (np.diag(qb_list))**2
     Q = np.block([
         [sT**4/4 * qb, sT**3/2 * qb, sT**2/2 * qb],
         [sT**3/2 * qb, sT**2 * qb, sT * qb],
@@ -712,7 +712,7 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     ])
 
     # MEASUREMENT COVARIANCE R
-    dlc_cov = 2     # 5**2
+    dlc_cov = 0     # 5**2
     cal_covs = [0.137, 0.236, 0.176, 0.298, 0.087, 0.116]
     # cal_covs = [0.5, 2.271, 1.795, 0.310, 0.087, 0.116]
     # cal_covs = [0., 0., 0., 0., 0., 0.]
@@ -759,11 +759,12 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         # Measurement Covariance R
         likelihood = likelihood_arr[i + start_frame]
         bad_point_mask = np.repeat(likelihood<dlc_thresh, 2)
-        # dlc_cov_arr = dlc_cov * np.ones((n_cams*n_markers*2))
         dlc_cov_arr = []
         for cov in cal_covs:
-            dlc_cov_arr += [dlc_cov + cov] * (n_markers*2)
+            dlc_cov_arr += [dlc_cov + 2 * cov / min(cal_covs)] * (n_markers*2)
         dlc_cov_arr = np.array(dlc_cov_arr)
+        # dlc_cov_arr = [dlc_cov + c for c in cal_covs] * (n_markers*2)
+        # dlc_cov_arr = np.array(dlc_cov_arr)
 
         dlc_cov_arr[bad_point_mask] = max_pixel_err # change this to be independent of cam res?
         R = np.diag(dlc_cov_arr**2)
@@ -793,12 +794,11 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
 
     print('EKF complete!')
     print('Outliers ignored:', outliers_ignored)
-    # sys.exit(1)
 
     # Run Kalman Smoother
     smooth_states_est_hist = states_est_hist.copy()
     smooth_P_est_hist = P_est_hist.copy()
-    for i in range(n_frames-2, 0, -1):
+    for i in range(n_frames-2, -1, -1):
         A = P_est_hist[i] @ F.T @ np.linalg.inv(P_pred_hist[i+1])
         smooth_states_est_hist[i] = states_est_hist[i] + A @ (smooth_states_est_hist[i+1] - states_pred_hist[i+1])
         smooth_P_est_hist[i] = P_est_hist[i] + A @ (smooth_P_est_hist[i+1] - P_pred_hist[i+1]) @ A.T
@@ -987,7 +987,7 @@ if __name__ == '__main__':
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,-1,0,0,0], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,-1,0,0,0,0], verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
