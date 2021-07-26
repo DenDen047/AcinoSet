@@ -716,11 +716,11 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
     ])
 
     # MEASUREMENT COVARIANCE R
-    dlc_cov = 0     # 5**2
-    cal_covs = [0.137, 0.236, 0.176, 0.298, 0.087, 0.116]
+    dlc_cov = 3     # 5**2
+    # cal_covs = [0.137, 0.236, 0.176, 0.298, 0.087, 0.116]
     # cal_covs = [0.5, 2.271, 1.795, 0.310, 0.087, 0.116]
-    # cal_covs = [0., 0., 0., 0., 0., 0.]
-    assert n_cams == len(cal_covs)
+    cal_covs = [0., 0., 0., 0., 0., 0.]
+    # assert n_cams == len(cal_covs)
 
     # State prediction function jacobian F - shape: (n_states, n_states)
     rng = np.arange(n_states - vel_idx)
@@ -763,12 +763,12 @@ def ekf(DATA_DIR, points_2d_df, marker_mode, camera_params, start_frame, end_fra
         # Measurement Covariance R
         likelihood = likelihood_arr[i + start_frame]
         bad_point_mask = np.repeat(likelihood<dlc_thresh, 2)
-        dlc_cov_arr = []
-        for cov in cal_covs:
-            dlc_cov_arr += [dlc_cov + 2 * cov / min(cal_covs)] * (n_markers*2)
-        dlc_cov_arr = np.array(dlc_cov_arr)
-        # dlc_cov_arr = [dlc_cov + c for c in cal_covs] * (n_markers*2)
+        # dlc_cov_arr = []
+        # for cov in cal_covs:
+        #     dlc_cov_arr += [dlc_cov + 2 * cov / min(cal_covs)] * (n_markers*2)
         # dlc_cov_arr = np.array(dlc_cov_arr)
+        dlc_cov_arr = [dlc_cov + c for c in cal_covs] * (n_markers*2)
+        dlc_cov_arr = np.array(dlc_cov_arr)
 
         dlc_cov_arr[bad_point_mask] = max_pixel_err # change this to be independent of cam res?
         R = np.diag(dlc_cov_arr**2)
@@ -994,10 +994,12 @@ if __name__ == '__main__':
     cgroup_fpath = os.path.join(calib_dir, 'calibration.toml')
     scene_fpath = utils.cameragroup_to_scene(cgroup_fpath)
     k_arr, d_arr, r_arr, t_arr, cam_res = utils.load_scene(scene_fpath, verbose=False)
+    n_cams = len(k_arr)
     # k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
-    camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, n_cams)
 
+    camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, n_cams)
     assert res == cam_res
+
     # load DLC data
     dlc_points_fpaths = sorted(glob(os.path.join(DLC_DIR, '*.h5')))
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
