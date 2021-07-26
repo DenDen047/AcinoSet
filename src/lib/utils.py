@@ -73,6 +73,40 @@ def load_scene(fpath, verbose=True):
     return k_arr, d_arr, r_arr, t_arr, cam_res
 
 
+def cameragroup_to_scene(fpath) -> str:
+    import cv2 as cv
+    from aniposelib.cameras import CameraGroup
+
+    cgroup = CameraGroup.load(fpath)
+
+    # convert
+    cam_dicts = cgroup.get_dicts()
+    cameras = []
+    cam_res = None
+    for cam in cam_dicts:
+        cam_res = cam['size']
+        r, _ = cv.Rodrigues(np.array(cam['rotation']))
+        cameras.append({
+            'k': cam['matrix'],
+            'd': [[v] for v in np.array(cam['distortions'], dtype=np.float64).tolist()],
+            'r': r.tolist(),
+            't': [[v] for v in np.array(cam['translation'], dtype=np.float64).tolist()]
+        })
+
+    # data
+    data = {
+        'camera_resolution': cam_res,
+        'cameras': cameras,
+    }
+
+    # save
+    out_fpath = fpath[-4:] + 'json'
+    with open(out_fpath, 'w') as f:
+        json.dump(data, f, indent=4)
+
+    return out_fpath
+
+
 def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
     assert frame_shifts is None or len(dlc_df_fpaths) == len(frame_shifts), print("`frame_shifts` should be the same size with `dlc_df_fpaths`")
 

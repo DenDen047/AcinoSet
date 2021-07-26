@@ -15,6 +15,8 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 from scipy.stats import linregress
 from pyomo.opt import SolverFactory
+from aniposelib.cameras import Camera, CameraGroup
+import cv2 as cv
 
 from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
@@ -988,9 +990,14 @@ if __name__ == '__main__':
     # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
-    k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
-    assert res == cam_res
+    calib_dir = '/data/2019_03_09/extrinsic_calib'
+    cgroup_fpath = os.path.join(calib_dir, 'calibration.toml')
+    scene_fpath = utils.cameragroup_to_scene(cgroup_fpath)
+    k_arr, d_arr, r_arr, t_arr, cam_res = utils.load_scene(scene_fpath, verbose=False)
+    # k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
     camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, n_cams)
+
+    assert res == cam_res
     # load DLC data
     dlc_points_fpaths = sorted(glob(os.path.join(DLC_DIR, '*.h5')))
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
