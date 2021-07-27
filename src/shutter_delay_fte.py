@@ -325,7 +325,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         return m.shutter_delay[1] == 0.0
 
     def shutter_delay_constraint(m, c):
-        return abs(m.shutter_delay[c]) <= m.Ts
+        # return abs(m.shutter_delay[c]) <= m.Ts
+        return m.shutter_delay[c] == 0.0
 
     m.shutter_base_constraint = pyo.Constraint(rule=shutter_base_constraint)
     m.shutter_delay_constraint = pyo.Constraint(m.C, rule=shutter_delay_constraint)
@@ -467,7 +468,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         for n in m.N:
             # model error
             for p in m.P:
-                slack_model_err += m.model_err_weight[p] * m.slack_model[n, p] ** 2
+                slack_model_err += (m.model_err_weight[p] * m.slack_model[n, p]) ** 2
             # measurement error
             for l in m.L:
                 for c in m.C:
@@ -496,7 +497,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     opt.options['OF_print_timing_statistics'] = 'yes'
     opt.options['OF_print_frequency_iter']    = 10
     opt.options['OF_hessian_approximation']   = 'limited-memory'
-    # opt.options['linear_solver'] = 'ma86'
+    opt.options['linear_solver'] = 'ma86'
 
     t1 = time()
     print('\nInitialization took {0:.2f} seconds\n'.format(t1 - t0))
@@ -541,6 +542,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     save_error_dists(pix_errors, OUT_DIR)
 
     # save pkl/mat and video files
+    sys.exit(1)
     out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)
 
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
