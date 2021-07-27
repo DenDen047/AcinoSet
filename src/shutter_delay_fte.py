@@ -150,7 +150,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 3   # measurement standard deviation (default: 5)
+    R = 2   # measurement standard deviation (default: 5)
     _Q = [  # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
@@ -255,6 +255,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     m.poses       = pyo.Var(m.N, m.L, m.D3)
     m.slack_model = pyo.Var(m.N, m.P)
     m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0)
+    m.shutter_delay = pyo.Var(m.C, initialize=0.0)
 
     # ========= LAMBDIFY SYMBOLIC FUNCTIONS ========
     func_map = {
@@ -318,6 +319,18 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         idx[state] += 1
 
     #===== POSE CONSTRAINTS =====
+    print('- Shutter delay')
+
+    def shutter_base_constraint(m):
+        return m.shutter_delay[1] == 0.0
+
+    def shutter_delay_constraint(m, c):
+        return abs(m.shutter_delay[c]) <= m.Ts
+
+    m.shutter_base_constraint = pyo.Constraint(rule=shutter_base_constraint)
+    m.shutter_delay_constraint = pyo.Constraint(m.C, rule=shutter_delay_constraint)
+
+    #===== POSE CONSTRAINTS =====
     print('- Pose')
 
     def pose_constraint(m, n, l, d3):
@@ -341,44 +354,44 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def neck_psi_1(m, n):
         return abs(m.x[n,idx['psi_1']]) <= np.pi / 6
     # front torso
-    def front_torso_theta_2(m,n):
+    def front_torso_theta_2(m, n):
         return abs(m.x[n,idx['theta_2']]) <= np.pi / 6
     # back torso
-    def back_torso_theta_3(m,n):
+    def back_torso_theta_3(m, n):
         return abs(m.x[n,idx['theta_3']]) <= np.pi / 6
-    def back_torso_phi_3(m,n):
+    def back_torso_phi_3(m, n):
         return abs(m.x[n,idx['phi_3']]) <= np.pi / 6
-    def back_torso_psi_3(m,n):
+    def back_torso_psi_3(m, n):
         return abs(m.x[n,idx['psi_3']]) <= np.pi / 6
     # tail base
-    def tail_base_theta_4(m,n):
+    def tail_base_theta_4(m, n):
         return abs(m.x[n,idx['theta_4']]) <= np.pi / 1.5
-    def tail_base_psi_4(m,n):
+    def tail_base_psi_4(m, n):
         return abs(m.x[n,idx['psi_4']]) <= np.pi / 1.5
     # tail mid
-    def tail_mid_theta_5(m,n):
+    def tail_mid_theta_5(m, n):
         return abs(m.x[n,idx['theta_5']]) <= np.pi / 1.5
-    def tail_mid_psi_5(m,n):
+    def tail_mid_psi_5(m, n):
         return abs(m.x[n,idx['psi_5']]) <= np.pi / 1.5
     # front left leg
-    def l_shoulder_theta_6(m,n):
+    def l_shoulder_theta_6(m, n):
         return abs(m.x[n,idx['theta_6']]) <= np.pi / 2
-    def l_front_knee_theta_7(m,n):
+    def l_front_knee_theta_7(m, n):
         return abs(m.x[n,idx['theta_7']] + np.pi/2) <= np.pi / 2
     # front right leg
-    def r_shoulder_theta_8(m,n):
+    def r_shoulder_theta_8(m, n):
         return abs(m.x[n,idx['theta_8']]) <= np.pi / 2
-    def r_front_knee_theta_9(m,n):
+    def r_front_knee_theta_9(m, n):
         return abs(m.x[n,idx['theta_9']] + np.pi/2) <= np.pi / 2
     # back left leg
-    def l_hip_theta_10(m,n):
+    def l_hip_theta_10(m, n):
         return abs(m.x[n,idx['theta_10']]) <= np.pi / 2
-    def l_back_knee_theta_11(m,n):
+    def l_back_knee_theta_11(m, n):
         return abs(m.x[n,idx['theta_11']] - np.pi/2) <= np.pi / 2
     # back right leg
-    def r_hip_theta_12(m,n):
+    def r_hip_theta_12(m, n):
         return abs(m.x[n,idx['theta_12']]) <= np.pi / 2
-    def r_back_knee_theta_13(m,n):
+    def r_back_knee_theta_13(m, n):
         return abs(m.x[n,idx['theta_13']] - np.pi/2) <= np.pi / 2
 
     if mode == 'default':
@@ -413,7 +426,10 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def measurement_constraints(m, n, c, l, d2):
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
-        x, y, z    = m.poses[n,l,idx['x_0']], m.poses[n,l,idx['y_0']], m.poses[n,l,idx['z_0']]
+        tau = m.shutter_delay[c]
+        x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']] * tau
+        y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']] * tau
+        z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']] * tau
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
     m.measurement = pyo.Constraint(m.N, m.C, m.L, m.D2, rule=measurement_constraints)
@@ -493,6 +509,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     app.stop_logging()
 
     # ========= SAVE FTE RESULTS ========
+    print('shutter delay:', [m.shutter_delay[c].value for c in m.C])
     x, dx, ddx = [], [], []
     for n in m.N:
         x.append([m.x[n, p].value for p in m.P])
