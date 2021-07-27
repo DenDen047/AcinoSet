@@ -196,7 +196,7 @@ def save_optimised_cheetah(positions, out_fpath, extra_data=None, for_matlab=Tru
         file_data.update(extra_data)
 
     with open(out_fpath, 'wb') as f:
-            pickle.dump(file_data, f)
+        pickle.dump(file_data, f)
     print('Saved', out_fpath)
 
     if for_matlab:
