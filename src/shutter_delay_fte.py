@@ -325,8 +325,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         return m.shutter_delay[1] == 0.0
 
     def shutter_delay_constraint(m, c):
-        # return abs(m.shutter_delay[c]) <= m.Ts
-        return m.shutter_delay[c] == 0.0
+        return abs(m.shutter_delay[c]) <= m.Ts
+        # return m.shutter_delay[c] == 0.0
 
     m.shutter_base_constraint = pyo.Constraint(rule=shutter_base_constraint)
     m.shutter_delay_constraint = pyo.Constraint(m.C, rule=shutter_delay_constraint)
@@ -468,7 +468,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         for n in m.N:
             # model error
             for p in m.P:
-                slack_model_err += (m.model_err_weight[p] * m.slack_model[n, p]) ** 2
+                slack_model_err += m.model_err_weight[p] * m.slack_model[n, p] ** 2
             # measurement error
             for l in m.L:
                 for c in m.C:
@@ -486,7 +486,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     # run the solver
     opt = SolverFactory(
         'ipopt',
-        # executable='./CoinIpopt/build/bin/ipopt'
+        executable='/tmp/build/bin/ipopt'
     )
 
     # solver options
@@ -520,29 +520,30 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         x=x,
         dx=dx,
         ddx=ddx,
+        shutter_delay=[m.shutter_delay[c].value for c in m.C]
     )
 
-    # calculate residual error
-    positions_3d = np.array([misc.get_3d_marker_coords(state, mode) for state in states['x']])
-    frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
-    n_frames = len(frames)
-    points_3d = []
-    for i, m in enumerate(markers):
-        _pt3d = np.squeeze(positions_3d[:, i, :])
-        marker_arr = np.array([m] * n_frames).reshape((-1, 1))
-        _pt3d = np.hstack((frames, marker_arr, _pt3d))
-        points_3d.append(_pt3d)
-    points_3d_df = pd.DataFrame(
-        np.vstack(points_3d),
-        columns=['frame', 'marker', 'x', 'y', 'z'],
-    ).astype(
-        {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
-    )
-    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    save_error_dists(pix_errors, OUT_DIR)
+    # TODO
+    # # calculate residual error
+    # positions_3d = np.array([misc.get_3d_marker_coords(state, mode) for state in states['x']])
+    # frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
+    # n_frames = len(frames)
+    # points_3d = []
+    # for i, m in enumerate(markers):
+    #     _pt3d = np.squeeze(positions_3d[:, i, :])
+    #     marker_arr = np.array([m] * n_frames).reshape((-1, 1))
+    #     _pt3d = np.hstack((frames, marker_arr, _pt3d))
+    #     points_3d.append(_pt3d)
+    # points_3d_df = pd.DataFrame(
+    #     np.vstack(points_3d),
+    #     columns=['frame', 'marker', 'x', 'y', 'z'],
+    # ).astype(
+    #     {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
+    # )
+    # pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    # save_error_dists(pix_errors, OUT_DIR)
 
     # save pkl/mat and video files
-    sys.exit(1)
     out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)
 
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')

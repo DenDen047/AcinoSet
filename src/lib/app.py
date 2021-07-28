@@ -6,6 +6,7 @@ import numpy as np
 from glob import glob
 from . import utils
 from .points import find_corners_images, EOM_curve_fit
+from . import misc
 from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
 from .sba import _sba_board_points, _sba_points
@@ -305,22 +306,26 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
 
 
 def save_fte(states, mode, out_dir, scene_fpath, start_frame, save_videos=True) -> str:
-    marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
-    head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
-    gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
+    shutter_delay = states['shutter_delay']
+    video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
+    assert len(shutter_delay) == len(video_fpaths)
 
-    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-    positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
+    for tau, vpath in zip(shutter_delay, video_fpaths):
+        marker_pos = np.array([misc.get_3d_marker_coords_for_shutter_delay(x, dx, tau, mode) for x, dx in zip(states['x'], states['dx'])]) # (timestep, marker_idx, xyz)
+        head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
+        gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
 
-    out_fpath = os.path.join(out_dir, 'fte.pickle')
-    utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(**states, start_frame=start_frame))
-    bodyparts = get_markers(mode) + ['coe', 'gaze_target']
-    points_on_each_vid = utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
+        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+        positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
-    if save_videos:
-        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
+        out_fpath = os.path.join(out_dir, 'fte.pickle')
+        utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(**states, start_frame=start_frame))
+        bodyparts = get_markers(mode) + ['coe', 'gaze_target']
+        points_on_each_vid = utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
+
+        if save_videos:
+            create_labeled_videos([vpath], out_dir=out_dir, draw_skeleton=True, directions=True)
 
     return out_fpath
 
