@@ -310,8 +310,8 @@ def save_fte(states, mode, out_dir, scene_fpath, start_frame, save_videos=True) 
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
     assert len(shutter_delay) == len(video_fpaths)
 
-    for tau, vpath in zip(shutter_delay, video_fpaths):
-        marker_pos = np.array([misc.get_3d_marker_coords_for_shutter_delay(x, dx, tau, mode) for x, dx in zip(states['x'], states['dx'])]) # (timestep, marker_idx, xyz)
+    for taus, vpath in zip(shutter_delay, video_fpaths):
+        marker_pos = np.array([misc.get_3d_marker_coords_for_shutter_delay(x, dx, tau, mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
         head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
         gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
 

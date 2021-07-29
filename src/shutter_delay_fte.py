@@ -255,7 +255,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     m.poses       = pyo.Var(m.N, m.L, m.D3)
     m.slack_model = pyo.Var(m.N, m.P)
     m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0)
-    m.shutter_delay = pyo.Var(m.C, initialize=0.0)
+    m.shutter_delay = pyo.Var(m.N, m.C, initialize=0.0)
 
     # ========= LAMBDIFY SYMBOLIC FUNCTIONS ========
     func_map = {
@@ -321,15 +321,15 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     #===== POSE CONSTRAINTS =====
     print('- Shutter delay')
 
-    def shutter_base_constraint(m):
-        return m.shutter_delay[1] == 0.0
+    def shutter_base_constraint(m, n):
+        return m.shutter_delay[n, 1] == 0.0
 
-    def shutter_delay_constraint(m, c):
-        return abs(m.shutter_delay[c]) <= m.Ts
+    def shutter_delay_constraint(m, n, c):
+        return abs(m.shutter_delay[n, c]) <= m.Ts
         # return m.shutter_delay[c] == 0.0
 
-    m.shutter_base_constraint = pyo.Constraint(rule=shutter_base_constraint)
-    m.shutter_delay_constraint = pyo.Constraint(m.C, rule=shutter_delay_constraint)
+    m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
+    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint)
 
     #===== POSE CONSTRAINTS =====
     print('- Pose')
@@ -427,7 +427,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def measurement_constraints(m, n, c, l, d2):
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
-        tau = m.shutter_delay[c]
+        tau = m.shutter_delay[n, c]
         x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']] * tau
         y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']] * tau
         z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']] * tau
@@ -510,7 +510,11 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     app.stop_logging()
 
     # ========= SAVE FTE RESULTS ========
-    print('shutter delay:', [m.shutter_delay[c].value for c in m.C])
+    # print('shutter delay:', [m.shutter_delay[c].value for c in m.C])
+    for c in m.C:
+        result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
+        print(f'Camera {c}')
+        print(result)
     x, dx, ddx = [], [], []
     for n in m.N:
         x.append([m.x[n, p].value for p in m.P])
@@ -520,7 +524,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         x=x,
         dx=dx,
         ddx=ddx,
-        shutter_delay=[m.shutter_delay[c].value for c in m.C]
+        shutter_delay=[[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     )
 
     # TODO
