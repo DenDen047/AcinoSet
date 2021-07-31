@@ -219,7 +219,7 @@ def save_optimised_cheetah(positions, out_fpath, extra_data=None, for_matlab=Tru
         pass
 
 
-def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project_func, start_frame, save_as_csv=True, out_fname=None) -> List:
+def save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, project_func, start_frame, save_as_csv=True, out_fname=None) -> List:
     assert os.path.dirname(os.path.dirname(scene_fpath)) in out_dir, 'scene_fpath does not belong to the same parent folder as out_dir'
 
     # TODO: video_fpaths should be treated as a argument
@@ -234,18 +234,18 @@ def save_3d_cheetah_as_2d(positions_3d, out_dir, scene_fpath, bodyparts, project
         xyz_labels = ['x', 'y', 'likelihood'] # same format as DLC
         pdindex = pd.MultiIndex.from_product([bodyparts, xyz_labels], names=['bodyparts', 'coords'])
 
-        positions_3d = np.array(positions_3d)
-        n_frames = len(positions_3d)
-
         out_fname = os.path.basename(out_dir) if out_fname is None else out_fname
 
         result_dfs = []
         for i in range(len(video_fpaths)):
-            projections = project_func(positions_3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
+            position3d = np.array(position3d_arr[i])
+            n_frames = len(position3d)
+
+            projections = project_func(position3d, k_arr[i], d_arr[i], r_arr[i], t_arr[i])
             out_of_range_indices = np.where((projections > cam_res) | (projections < [0]*2))[0]
             projections[out_of_range_indices] = np.nan
 
-            data = np.full(positions_3d.shape, np.nan)
+            data = np.full(position3d.shape, np.nan)
             data[:, :, 0:2] = projections.reshape((n_frames, -1, 2))
 
             cam_name = os.path.splitext(os.path.basename(video_fpaths[i]))[0]

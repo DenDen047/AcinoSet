@@ -215,8 +215,10 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
     clip.close()
 
 
-def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color, video):
+def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color, iterable):
     """Helper function for create_labeled_videos"""
+    point_df = iterable['point2d_df']
+    video = iterable['video_fpath']
     video = os.path.abspath(video)
     vname = os.path.splitext(os.path.basename(video))[0]
 
@@ -227,8 +229,6 @@ def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, dr
     try:
         filepath = glob(vname + '*.h5')[0]  # TODO: this variable should be an argument
         videooutname = filepath.replace('.h5', '.mp4')
-
-        df = pd.read_hdf(filepath)
 
         # # for head_only
         # df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
@@ -246,10 +246,10 @@ def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, dr
         # ])
         # df = df.rename(index=lambda s: int(s[-7:-4]))
 
-        labeled_bpts = [bp for bp in df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
+        labeled_bpts = [bp for bp in point_df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
         clip = VideoProcessorCV(in_name=video, out_name=videooutname, codec=codec)
 
-        CreateVideo(clip, df, pcutoff, labeled_bpts, bodyparts2connect, dotsize, colormap, draw_skeleton, skeleton_color)
+        CreateVideo(clip, point_df, pcutoff, labeled_bpts, bodyparts2connect, dotsize, colormap, draw_skeleton, skeleton_color)
 
         os.chdir(start_path)
 

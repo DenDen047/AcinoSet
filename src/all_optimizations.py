@@ -469,7 +469,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     # run the solver
     opt = SolverFactory(
         'ipopt',
-        # executable='./CoinIpopt/build/bin/ipopt'
+        executable='/tmp/build/bin/ipopt'
     )
 
     # solver options
@@ -480,7 +480,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     opt.options['OF_print_timing_statistics'] = 'yes'
     opt.options['OF_print_frequency_iter']    = 10
     opt.options['OF_hessian_approximation']   = 'limited-memory'
-    # opt.options['linear_solver'] = 'ma86'
+    opt.options['linear_solver'] = 'ma86'
 
     t1 = time()
     print('\nInitialization took {0:.2f} seconds\n'.format(t1 - t0))
@@ -1051,12 +1051,12 @@ if __name__ == '__main__':
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
     # plt.close('all')
-    print('========== EKF ==========\n')
-    ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    plt.close('all')
-    # print('========== FTE ==========\n')
-    # fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # print('========== EKF ==========\n')
+    # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     # plt.close('all')
+    print('========== FTE ==========\n')
+    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    plt.close('all')
 
     if args.plot:
         print('Plotting results...')
