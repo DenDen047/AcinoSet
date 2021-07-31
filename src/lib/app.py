@@ -217,6 +217,8 @@ def plot_multiple_cheetah_reconstructions(data_fpaths, scene_fname=None, **kwarg
 # Also use this instead: out_fpath = os.path.join(out_dir, f'{os.path.basename(out_dir)}.pickle')
 
 def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save_videos=True) -> str:
+    video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
+
     # additional positions
     nose_pos = positions[:, 0, :]   # (timestep, xyz)
     r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
@@ -238,16 +240,18 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save
         )
     )
     # save reprojected 3D points
-    _ = utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
+    position3d_arr = [positions] * len(video_fpaths)
+    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
     if save_videos:
-        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
+        create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
 
     return out_fpath
 
 
 def save_sba(positions, out_dir, scene_fpath, markers, start_frame, save_videos=True) -> str:
+    video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
+
     nose_pos = positions[:, 0, :]  # (timestep, xyz)
     r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
     l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
@@ -263,16 +267,18 @@ def save_sba(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
         positions, out_fpath,
         extra_data=dict(start_frame=start_frame)
     )
-    utils.save_3d_cheetah_as_2d(positions, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
+    position3d_arr = [positions] * len(video_fpaths)
+    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
 
     if save_videos:
-        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
+        create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
 
     return out_fpath
 
 
 def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, save_videos=True) -> str:
+    video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
+
     if not directions:
         positions = [get_3d_marker_coords(state, mode) for state in states['x']]
         smoothed_positions = [get_3d_marker_coords(state, mode) for state in states['smoothed_x']]
@@ -296,11 +302,11 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     bodyparts = get_markers(mode)
     if directions:
         bodyparts += ['coe', 'gaze_target']
-    points_on_each_vid = utils.save_3d_cheetah_as_2d(smoothed_positions, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
+    position3d_arr = [smoothed_positions] * len(video_fpaths)
+    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
-        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-        create_labeled_videos(video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=directions)
+        create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=directions)
 
     return out_fpath
 
