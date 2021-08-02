@@ -279,30 +279,14 @@ def save_sba(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
 def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, save_videos=True) -> str:
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
-    if not directions:
-        positions = [get_3d_marker_coords(state, mode=mode) for state in states['x']]
-        smoothed_positions = [get_3d_marker_coords(state, mode=mode) for state in states['smoothed_x']]
-    else:
-        marker_pos = np.array([get_3d_marker_coords(state, mode=mode) for state in states['x']]) # (timestep, marker_idx, xyz)
-        head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
-        gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
-        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-        positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
-
-        marker_pos = np.array([get_3d_marker_coords(state, mode=mode) for state in states['smoothed_x']])
-        head_pos = np.array([state[0:3] for state in states['smoothed_x']])
-        gaze_targets = np.array([get_gaze_target(state) for state in states['smoothed_x']])
-        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-        smoothed_positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
+    positions = [get_3d_marker_coords(state, directions=directions, mode=mode) for state in states['x']]
+    smoothed_positions = [get_3d_marker_coords(state, directions=directions, mode=mode) for state in states['smoothed_x']]
 
     out_fpath = os.path.join(out_dir, 'ekf.pickle')
     utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
-    bodyparts = get_markers(mode)
-    if directions:
-        bodyparts += ['coe', 'gaze_target']
+
     position3d_arr = [smoothed_positions] * len(video_fpaths)
+    bodyparts = get_markers(mode, directions=directions)
     point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
