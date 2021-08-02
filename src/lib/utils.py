@@ -230,6 +230,8 @@ def save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, proje
     if video_fpaths:
         k_arr, d_arr, r_arr, t_arr, cam_res = load_scene(scene_fpath, verbose=False)
         assert len(k_arr) == len(video_fpaths)
+        if not isinstance(position3d_arr, list):
+            position3d_arr = [position3d_arr] * len(video_fpaths)
 
         xyz_labels = ['x', 'y', 'likelihood'] # same format as DLC
         pdindex = pd.MultiIndex.from_product([bodyparts, xyz_labels], names=['bodyparts', 'coords'])

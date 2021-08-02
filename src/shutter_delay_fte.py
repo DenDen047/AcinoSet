@@ -84,6 +84,65 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     return np.mean(errors)
 
 
+def cal_projection_error(states, n_cam, markers):
+    shutter_delay = states['shutter_delay']
+
+    position3d_arr = []
+    for i in range(n_cam):
+        if shutter_delay is not None:
+            taus = shutter_delay[i]
+            marker_pos = np.array([misc.get_3d_marker_coords(x, dx, tau, mode=mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
+        else:
+            marker_pos = np.array([misc.get_3d_marker_coords(x, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
+        head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
+        gaze_targets = np.array([misc.get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
+
+        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+        positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
+
+        position3d_arr.append(positions)
+
+
+    frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
+    n_frames = len(frames)
+
+    for i in range(n_cam):
+        positions_3d = np.array([misc.get_3d_marker_coords(x, dx, tau, mode=mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
+        points_3d = []
+        for i, m in enumerate(markers):
+            _pt3d = np.squeeze(positions_3d[:, i, :])
+            marker_arr = np.array([m] * n_frames).reshape((-1, 1))
+            _pt3d = np.hstack((frames, marker_arr, _pt3d))
+            points_3d.append(_pt3d)
+        points_3d_df = pd.DataFrame(
+            np.vstack(points_3d), columns=['frame', 'marker', 'x', 'y', 'z'],
+        ).astype(
+            {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
+        )
+        pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+
+
+
+    positions_3d = np.array([misc.get_3d_marker_coords(state, mode=mode) for state in states['x']])
+    frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
+    n_frames = len(frames)
+    points_3d = []
+    for i, m in enumerate(markers):
+        _pt3d = np.squeeze(positions_3d[:, i, :])
+        marker_arr = np.array([m] * n_frames).reshape((-1, 1))
+        _pt3d = np.hstack((frames, marker_arr, _pt3d))
+        points_3d.append(_pt3d)
+    points_3d_df = pd.DataFrame(
+        np.vstack(points_3d),
+        columns=['frame', 'marker', 'x', 'y', 'z'],
+    ).astype(
+        {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
+    )
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    save_error_dists(pix_errors, OUT_DIR)
+
+
 def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
     # === INITIAL VARIABLES ===
     # dirs
@@ -526,26 +585,6 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         ddx=ddx,
         shutter_delay=[[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     )
-
-    # TODO
-    # # calculate residual error
-    # positions_3d = np.array([misc.get_3d_marker_coords(state, mode) for state in states['x']])
-    # frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
-    # n_frames = len(frames)
-    # points_3d = []
-    # for i, m in enumerate(markers):
-    #     _pt3d = np.squeeze(positions_3d[:, i, :])
-    #     marker_arr = np.array([m] * n_frames).reshape((-1, 1))
-    #     _pt3d = np.hstack((frames, marker_arr, _pt3d))
-    #     points_3d.append(_pt3d)
-    # points_3d_df = pd.DataFrame(
-    #     np.vstack(points_3d),
-    #     columns=['frame', 'marker', 'x', 'y', 'z'],
-    # ).astype(
-    #     {'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'}
-    # )
-    # pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    # save_error_dists(pix_errors, OUT_DIR)
 
     # save pkl/mat and video files
     out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame)

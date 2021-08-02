@@ -311,33 +311,20 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     return out_fpath
 
 
-def save_fte(states, mode, out_dir, scene_fpath, start_frame, save_videos=True) -> str:
+def save_fte(states, mode, out_dir, scene_fpath, start_frame, directions=True, save_videos=True) -> str:
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
-    shutter_delay = states.get('shutter_delay')
+    n_cam = len(video_fpaths)
+    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, directions=directions, mode=mode)   # state -> 3d marker
 
-    position3d_arr = []
-    for i, vpath in enumerate(video_fpaths):
-        if shutter_delay is not None:
-            taus = shutter_delay[i]
-            marker_pos = np.array([misc.get_3d_marker_coords(x, dx, tau, mode=mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
-        else:
-            marker_pos = np.array([misc.get_3d_marker_coords(x, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
-        head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
-        gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
-
-        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-        positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
-
-        position3d_arr.append(positions)
-
+    # save 3d points
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     utils.save_optimised_cheetah(position3d_arr, out_fpath, extra_data=dict(**states, start_frame=start_frame))
-    bodyparts = get_markers(mode) + ['coe', 'gaze_target']
+    # reproject 3d points into 2d
+    bodyparts = get_markers(mode, directions=directions)
     point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
-        create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)
+        create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=directions)
 
     return out_fpath
 

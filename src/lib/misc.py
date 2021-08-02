@@ -5,7 +5,7 @@ from typing import Dict, List
 from scipy.spatial.transform import Rotation
 
 
-def get_markers(mode: str = 'default') -> List[str]:
+def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
     if mode == 'default':
         s = [
             'nose', 'r_eye', 'l_eye', 'neck_base',
@@ -30,6 +30,9 @@ def get_markers(mode: str = 'default') -> List[str]:
             'l_hip', 'l_back_knee', 'l_back_ankle', 'l_back_paw',
             'lure'
         ]
+
+    if directions:
+        s += ['coe', 'gaze_target']
 
     return s
 
@@ -101,7 +104,22 @@ def _norm_vector(v):
     return v / np.linalg.norm(v)
 
 
-def get_3d_marker_coords(x, dx=None, tau: float = 0.0, mode: str = 'default'):
+def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = False, mode: str = 'default') -> List:
+    shutter_delay = states.get('shutter_delay')
+
+    marker_pos_arr = []
+    for i in range(n_cam):
+        if shutter_delay is not None:
+            taus = shutter_delay[i]
+            marker_pos = np.array([get_3d_marker_coords(x, dx, tau, directions=directions, mode=mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
+        else:
+            marker_pos = np.array([get_3d_marker_coords(x, directions=directions, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
+        marker_pos_arr.append(marker_pos)
+
+    return marker_pos_arr
+
+
+def get_3d_marker_coords(x, dx=None, tau: float = 0.0, directions: bool = False, mode: str = 'default'):
     """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
     """
     idx = get_pose_params(mode)
@@ -173,7 +191,7 @@ def get_3d_marker_coords(x, dx=None, tau: float = 0.0, mode: str = 'default'):
 
         p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
 
-        return func([
+        result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
             p_neck_base.T, p_spine.T,
             p_tail_base.T, p_tail_mid.T, p_tail_tip.T,
@@ -182,7 +200,7 @@ def get_3d_marker_coords(x, dx=None, tau: float = 0.0, mode: str = 'default'):
             p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T,
             p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T,
             p_lure.T,
-        ])
+        ]
     elif mode == 'head':
         # rotations
         RI_0 = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])         # head
@@ -197,9 +215,15 @@ def get_3d_marker_coords(x, dx=None, tau: float = 0.0, mode: str = 'default'):
         p_r_eye = p_head + R0_I @ func([0, -0.03, 0])
         p_nose  = p_head + R0_I @ func([0.055, 0, -0.055])
 
-        return func([
+        result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
-        ])
+        ]
+
+    if directions:
+        p_gaze_target = p_head + R0_I @ func([3, 0, 0])
+        result += [p_head.T, p_gaze_target.T]
+
+    return func(result)
 
 
 def redescending_loss(err, a, b, c):
