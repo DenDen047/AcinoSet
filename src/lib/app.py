@@ -280,17 +280,17 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
     if not directions:
-        positions = [get_3d_marker_coords(state, mode) for state in states['x']]
-        smoothed_positions = [get_3d_marker_coords(state, mode) for state in states['smoothed_x']]
+        positions = [get_3d_marker_coords(state, mode=mode) for state in states['x']]
+        smoothed_positions = [get_3d_marker_coords(state, mode=mode) for state in states['smoothed_x']]
     else:
-        marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['x']]) # (timestep, marker_idx, xyz)
+        marker_pos = np.array([get_3d_marker_coords(state, mode=mode) for state in states['x']]) # (timestep, marker_idx, xyz)
         head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
         gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
         head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
         gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
         positions = np.concatenate((marker_pos, head_pos, gaze_targets), axis=1)
 
-        marker_pos = np.array([get_3d_marker_coords(state, mode) for state in states['smoothed_x']])
+        marker_pos = np.array([get_3d_marker_coords(state, mode=mode) for state in states['smoothed_x']])
         head_pos = np.array([state[0:3] for state in states['smoothed_x']])
         gaze_targets = np.array([get_gaze_target(state) for state in states['smoothed_x']])
         head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
@@ -319,9 +319,9 @@ def save_fte(states, mode, out_dir, scene_fpath, start_frame, save_videos=True) 
     for i, vpath in enumerate(video_fpaths):
         if shutter_delay is not None:
             taus = shutter_delay[i]
-            marker_pos = np.array([misc.get_3d_marker_coords_for_shutter_delay(x, dx, tau, mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
+            marker_pos = np.array([misc.get_3d_marker_coords(x, dx, tau, mode=mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
         else:
-            marker_pos = np.array([misc.get_3d_marker_coords(x, mode) for x in states['x']]) # (timestep, marker_idx, xyz)
+            marker_pos = np.array([misc.get_3d_marker_coords(x, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
         head_pos = np.array([state[0:3] for state in states['x']])  # (timestep, xyz)
         gaze_targets = np.array([get_gaze_target(state) for state in states['x']]) # (timestep, xyz)
 
