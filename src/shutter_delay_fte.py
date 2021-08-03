@@ -84,8 +84,9 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     return np.mean(errors)
 
 
-def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
+def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, shutter_delay: bool = False, plot: bool = False) -> str:
     # === INITIAL VARIABLES ===
+    sd = shutter_delay
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'fte')
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -150,7 +151,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 3   # measurement standard deviation (default: 5)
+    R = 5   # measurement standard deviation (default: 5)
     _Q = [  # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
@@ -325,11 +326,18 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         return m.shutter_delay[n, 1] == 0.0
 
     def shutter_delay_constraint(m, n, c):
-        return abs(m.shutter_delay[n, c]) <= m.Ts
-        # return m.shutter_delay[c] == 0.0
+        return (-m.Ts, m.shutter_delay[n, c], m.Ts)
+        # return abs(m.shutter_delay[n, c]) <= m.Ts
 
-    m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
-    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint)
+    def disable_shutter_delay(m, n, c):
+        return m.shutter_delay[n, c] == 0.0
+
+    # m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
+    # m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint if sd else disable_shutter_delay)
+
+    m.shutter_base_constraint = pyo.Constraint(m.N, rule=lambda m, n: m.shutter_delay[n, 1] == 0.0)
+    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=lambda m, n, c: (-m.Ts, m.shutter_delay[n, c], m.Ts))
+
 
     #===== POSE CONSTRAINTS =====
     print('- Pose')
@@ -528,7 +536,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, save_videos=False)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=True)
 
     # calculate residual error
     positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=False, mode=mode)
@@ -597,7 +605,7 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc_head')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     # print('========== DLC ==========\n')
     # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
@@ -611,7 +619,7 @@ if __name__ == '__main__':
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,0,0,0,0], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
@@ -661,5 +669,5 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
     print('========== FTE ==========\n')
-    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, plot=args.plot)
     plt.close('all')
