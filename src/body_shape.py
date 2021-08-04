@@ -36,7 +36,7 @@ def get_lengths(
     n_frame, n_marker, _ = positions.shape  # [frame, marker, xyz]
 
     # minor functions
-    def _get_head(nose, r_eye, l_eye):
+    def _get_head(nose, r_eye, l_eye):  # [n_frame, xyz]
         n_frame, _ = nose.shape
         v_eyes = l_eye - r_eye
         v_noses = nose - r_eye
@@ -67,12 +67,13 @@ def get_lengths(
     nose = positions[:, ni, :]
     r_eye = positions[:, ri, :]
     l_eye = positions[:, li, :]
+    coe = (r_eye + l_eye) / 2   # center of eyes
     head = _get_head(nose, r_eye, l_eye)
 
     # get lengths
     results = {
-        'head_reye': _get_len(head, r_eye),
-        'head_leye': _get_len(head, l_eye),
+        'coe_reye': _get_len(coe, r_eye),
+        'coe_leye': _get_len(coe, l_eye),
         'head_nose': _get_len(head, nose),
     }
 
