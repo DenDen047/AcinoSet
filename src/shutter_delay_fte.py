@@ -41,7 +41,7 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={})'.format(len(errors)))
+    ax.set_title('Overall pixel errors (N={}, median={:.3f})'.format(len(errors), np.median(errors)))
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
@@ -605,7 +605,7 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc_head')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     # print('========== DLC ==========\n')
     # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)

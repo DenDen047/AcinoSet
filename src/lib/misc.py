@@ -211,9 +211,12 @@ def get_3d_marker_coords(x, dx=None, tau: float = 0.0, directions: bool = False,
         _y = x[idx['y_0']] + dx[idx['y_0']] * tau
         _z = x[idx['z_0']] + dx[idx['z_0']] * tau
         p_head  = func([_x, _y, _z])
-        p_l_eye = p_head + R0_I @ func([0, 0.03, 0])
-        p_r_eye = p_head + R0_I @ func([0, -0.03, 0])
-        p_nose  = p_head + R0_I @ func([0.055, 0, -0.055])
+        # p_l_eye = p_head + R0_I @ func([0, 0.03, 0])
+        # p_r_eye = p_head + R0_I @ func([0, -0.03, 0])
+        # p_nose  = p_head + R0_I @ func([0.055, 0, -0.055])
+        p_l_eye = p_head + R0_I @ func([0, 0.03836, 0])
+        p_r_eye = p_head + R0_I @ func([0, -0.03836, 0])
+        p_nose  = p_head + R0_I @ func([0.0463, 0, -0.0463])
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
