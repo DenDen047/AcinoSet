@@ -80,7 +80,7 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
     for i, path in enumerate(dlc_df_fpaths):
         df = pd.read_hdf(path)
 
-        if 'head' in dlc_df_fpaths[0][-4:]:
+        if 'dlc_head' in dlc_df_fpaths[0]:
             df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
             df = df.drop(columns=["objectA"], level=1)
             n_rows = len(df)
