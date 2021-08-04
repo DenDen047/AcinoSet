@@ -35,12 +35,23 @@ def get_lengths(
 
     n_frame, n_marker, _ = positions.shape  # [frame, marker, xyz]
 
-    nose = positions[:, ni, :]
-    r_eye = positions[:, ri, :]
-    l_eye = positions[:, li, :]
-    head = (r_eye + l_eye) / 2  # the center of eyes
-
     # minor functions
+    def _get_head(nose, r_eye, l_eye):
+        n_frame, _ = nose.shape
+        v_eyes = l_eye - r_eye
+        v_noses = nose - r_eye
+
+        v_heads = []
+        for f in range(n_frame):
+            v_eye = v_eyes[f, :]
+            v_nose = v_noses[f, :]
+            norm_eye = v_eye / np.linalg.norm(v_eye)
+
+            v_head = norm_eye * np.dot(norm_eye, v_nose) + r_eye[f, :]
+            v_heads.append(v_head)
+
+        return np.array(v_heads)
+
     def _get_len(arr1, arr2):
         return np.sqrt(np.sum((arr1 - arr2) ** 2, axis=1))
 
@@ -52,6 +63,11 @@ def get_lengths(
 
     def _describe(arr):
         return pd.DataFrame(pd.Series(_rm_nan(arr)).describe()).transpose()
+
+    nose = positions[:, ni, :]
+    r_eye = positions[:, ri, :]
+    l_eye = positions[:, li, :]
+    head = _get_head(nose, r_eye, l_eye)
 
     # get lengths
     results = {
