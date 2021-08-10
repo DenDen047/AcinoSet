@@ -395,3 +395,22 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
 
     plt.show(block=False)
     return fig, axs
+
+
+def plot_shutter_delay(data, mplstyle_fpath=None):
+    data = np.array(data)
+    n_camera, n_frame = data.shape
+    if mplstyle_fpath is not None:
+        plt.style.use(mplstyle_fpath)
+
+    fig, ax = plt.subplots()
+
+    x = range(1, n_frame+1)
+    for c in range(n_camera):
+        ax.plot(x, data[c,:]*1e3, label=f'camera_{c+1}')
+    ax.legend()
+    ax.set_xlabel('frame')
+    ax.set_ylabel('time delay (ms)')
+    ax.set_title('Shutter Delay')
+
+    return fig, ax

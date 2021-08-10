@@ -335,7 +335,6 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
     m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint if sd else disable_shutter_delay)
 
-
     #===== POSE CONSTRAINTS =====
     print('- Pose')
 
@@ -525,6 +524,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         x.append([m.x[n, p].value for p in m.P])
         dx.append([m.dx[n, p].value for p in m.P])
         ddx.append([m.ddx[n, p].value for p in m.P])
+    shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     states = dict(
         x=x,
         dx=dx,
@@ -558,6 +558,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     # plot cheetah state
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
+    fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
+    app.plot_shutter_delay(shutter_delay, out_fpath=fig_fpath)
 
     return out_fpath
 

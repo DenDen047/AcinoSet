@@ -7,6 +7,7 @@ from glob import glob
 from . import utils
 from .points import find_corners_images, EOM_curve_fit
 from . import misc
+from . import plotting
 from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
 from .sba import _sba_board_points, _sba_points
@@ -180,6 +181,12 @@ def plot_scene(data_dir, scene_fname=None, manual_points_only=False, **kwargs):
 
 def plot_cheetah_states(states, smoothed_states=None, mode='default', out_fpath=None, mplstyle_fpath=None):
     fig, axs = plot_optimized_states(states, smoothed_states, mode, mplstyle_fpath)
+    if out_fpath is not None:
+        fig.savefig(out_fpath, transparent=True)
+        print(f'Saved {out_fpath}\n')
+
+def plot_shutter_delay(shutter_delay, out_fpath=None, mplstyle_fpath=None):
+    fig, ax = plotting.plot_shutter_delay(shutter_delay, mplstyle_fpath)
     if out_fpath is not None:
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')

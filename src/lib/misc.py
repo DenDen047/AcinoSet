@@ -220,12 +220,12 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         _z = x[idx['z_0']] + dx[idx['z_0']] * tau + ddx[idx['z_0']] * (tau**2)
 
         p_head  = func([_x, _y, _z])
-        p_l_eye = p_head + R0_I @ func([0, 0.03, 0])
-        p_r_eye = p_head + R0_I @ func([0, -0.03, 0])
-        p_nose  = p_head + R0_I @ func([0.055, 0, -0.055])
-        # p_l_eye = p_head + R0_I @ func([0, 0.034705, 0])
-        # p_r_eye = p_head + R0_I @ func([0, -0.034705, 0])
-        # p_nose  = p_head + R0_I @ func([0.04862, 0, -0.04862])
+        # p_l_eye = p_head + R0_I @ func([0, 0.03, 0])
+        # p_r_eye = p_head + R0_I @ func([0, -0.03, 0])
+        # p_nose  = p_head + R0_I @ func([0.055, 0, -0.055])
+        p_l_eye = p_head + R0_I @ func([0, 0.034705, 0])
+        p_r_eye = p_head + R0_I @ func([0, -0.034705, 0])
+        p_nose  = p_head + R0_I @ func([0.04862, 0, -0.04862])
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
