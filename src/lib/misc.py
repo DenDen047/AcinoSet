@@ -216,7 +216,7 @@ def get_3d_marker_coords(x, dx=None, tau: float = 0.0, directions: bool = False,
         # p_nose  = p_head + R0_I @ func([0.055, 0, -0.055])
         p_l_eye = p_head + R0_I @ func([0, 0.03836, 0])
         p_r_eye = p_head + R0_I @ func([0, -0.03836, 0])
-        p_nose  = p_head + R0_I @ func([0.0463, 0, -0.0463])
+        p_nose  = p_head + R0_I @ func([0.0486, 0, -0.0486])
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,

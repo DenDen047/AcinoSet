@@ -181,7 +181,6 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
     save_error_dists(pix_errors, OUT_DIR)
 
-
     # ========= SAVE SBA RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
 

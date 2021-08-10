@@ -76,6 +76,7 @@ def residual_error(points_2d_df, points_3d_dfs, markers, camera_params) -> Dict:
                 np.vstack((frames, marker_arr, cam_dist, residual, error_uv.T)).T,
                 columns=['frame', 'marker', 'camera_distance', 'pixel_residual', 'error_u', 'error_v']
             ))
-        error[str(i)] = pd.concat(error_dfs, ignore_index=True)
+
+        error[str(i)] = pd.concat(error_dfs, ignore_index=True) if len(error_dfs) > 0 else pd.DataFrame(columns=['frame', 'marker', 'camera_distance', 'pixel_residual', 'error_u', 'error_v'])
 
     return error
