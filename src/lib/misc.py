@@ -111,22 +111,30 @@ def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = Fal
     for i in range(n_cam):
         if shutter_delay is not None:
             taus = shutter_delay[i]
-            marker_pos = np.array([get_3d_marker_coords(x, dx, tau, directions=directions, mode=mode) for x, dx, tau in zip(states['x'], states['dx'], taus)]) # (timestep, marker_idx, xyz)
+            marker_pos = np.array([
+                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, tau, directions=directions, mode=mode)
+                for x, dx, ddx, tau in zip(states['x'], states['dx'], states['ddx'], taus)
+            ])  # (timestep, marker_idx, xyz)
         else:
-            marker_pos = np.array([get_3d_marker_coords(x, directions=directions, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
+            marker_pos = np.array([get_3d_marker_coords({'x': x}, directions=directions, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
         marker_pos_arr.append(marker_pos)
 
     return marker_pos_arr
 
 
-def get_3d_marker_coords(x, dx=None, tau: float = 0.0, directions: bool = False, mode: str = 'default'):
+def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = False, mode: str = 'default', intermode: str = 'pos'):
     """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
     """
+    x = states['x']
+    dx = states.get('dx', None)
+    ddx = states.get('ddx', None)
     idx = get_pose_params(mode)
     func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
 
     if dx is None:
         dx = [0] * len(x)
+    if ddx is None:
+        ddx = [0] * len(x)
 
     if mode == 'default':
         # rotations
@@ -207,9 +215,10 @@ def get_3d_marker_coords(x, dx=None, tau: float = 0.0, directions: bool = False,
         R0_I = RI_0.T
 
         # positions
-        _x = x[idx['x_0']] + dx[idx['x_0']] * tau
-        _y = x[idx['y_0']] + dx[idx['y_0']] * tau
-        _z = x[idx['z_0']] + dx[idx['z_0']] * tau
+        _x = x[idx['x_0']] + dx[idx['x_0']] * tau + ddx[idx['x_0']] * (tau**2)
+        _y = x[idx['y_0']] + dx[idx['y_0']] * tau + ddx[idx['y_0']] * (tau**2)
+        _z = x[idx['z_0']] + dx[idx['z_0']] * tau + ddx[idx['z_0']] * (tau**2)
+
         p_head  = func([_x, _y, _z])
         p_l_eye = p_head + R0_I @ func([0, 0.03, 0])
         p_r_eye = p_head + R0_I @ func([0, -0.03, 0])

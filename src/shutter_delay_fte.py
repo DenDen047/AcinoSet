@@ -84,9 +84,10 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     return np.mean(errors)
 
 
-def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, shutter_delay: bool = False, plot: bool = False) -> str:
+def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, shutter_delay: bool = False, interpolation_mode: str = 'pos', plot: bool = False) -> str:
     # === INITIAL VARIABLES ===
     sd = shutter_delay
+    intermode = interpolation_mode
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'fte')
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -113,8 +114,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # symbolic vars
     idx       = misc.get_pose_params(mode=mode)
-    sym_list  = sp.symbols(list(idx.keys()))
-    positions = misc.get_3d_marker_coords(sym_list, mode=mode)
+    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, theta_0, psi_0]
+    positions = misc.get_3d_marker_coords({'x': sym_list}, mode=mode)
 
     t0 = time()
 
@@ -319,7 +320,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     for state in idx:
         idx[state] += 1
 
-    #===== POSE CONSTRAINTS =====
+    #===== SHUTTER DELAY CONSTRAINTS =====
     print('- Shutter delay')
 
     def shutter_base_constraint(m, n):
@@ -432,9 +433,9 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
         tau = m.shutter_delay[n, c]
-        x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']] * tau
-        y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']] * tau
-        z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']] * tau
+        x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']] * tau + m.ddx[n,idx['x_0']] * (tau**2)
+        y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']] * tau + m.ddx[n,idx['y_0']] * (tau**2)
+        z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']] * tau + m.ddx[n,idx['z_0']] * (tau**2)
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
     m.measurement = pyo.Constraint(m.N, m.C, m.L, m.D2, rule=measurement_constraints)
@@ -532,7 +533,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=True)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=False)
 
     # calculate residual error
     positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=False, mode=mode)
@@ -665,5 +666,5 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
     print('========== FTE ==========\n')
-    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, plot=args.plot)
+    fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
     plt.close('all')
