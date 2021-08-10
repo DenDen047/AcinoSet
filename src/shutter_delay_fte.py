@@ -327,16 +327,12 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     def shutter_delay_constraint(m, n, c):
         return (-m.Ts, m.shutter_delay[n, c], m.Ts)
-        # return abs(m.shutter_delay[n, c]) <= m.Ts
 
     def disable_shutter_delay(m, n, c):
         return m.shutter_delay[n, c] == 0.0
 
-    # m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
-    # m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint if sd else disable_shutter_delay)
-
-    m.shutter_base_constraint = pyo.Constraint(m.N, rule=lambda m, n: m.shutter_delay[n, 1] == 0.0)
-    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=lambda m, n, c: (-m.Ts, m.shutter_delay[n, c], m.Ts))
+    m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
+    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint if sd else disable_shutter_delay)
 
 
     #===== POSE CONSTRAINTS =====
