@@ -149,6 +149,43 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     return np.mean(errors)
 
 
+def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}) -> str:
+    OUT_DIR = os.path.join(DATA_DIR, 'tri')
+    os.makedirs(OUT_DIR, exist_ok=True)
+    markers = misc.get_markers(mode='all')
+    k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
+
+    # save reconstruction parameters
+    params['start_frame'] = start_frame
+    params['end_frame'] = end_frame
+    params['dlc_thresh'] = dlc_thresh
+    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
+        json.dump(params, f)
+
+    # triangulation
+    points_2d_df = points_2d_df.query(f'likelihood > {dlc_thresh}')
+    points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
+    points_3d_df = utils.get_pairwise_3d_points_from_df(
+        points_2d_df,
+        k_arr, d_arr.reshape((-1,4)), r_arr, t_arr,
+        triangulate_points_fisheye
+    )
+    points_3d_df['point_index'] = points_3d_df.index
+
+    # calculate residual error
+    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
+    save_error_dists(pix_errors, OUT_DIR)
+
+    # ========= SAVE TRIANGULATION RESULTS ========
+    positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan) # [frame, marker, xyz]
+    for i, marker in enumerate(markers):
+        marker_pts = points_3d_df[points_3d_df['marker']==marker][['frame', 'x', 'y', 'z']].values
+        for frame, *pt_3d in marker_pts:
+            positions[int(frame) - start_frame, i] = pt_3d
+
+    return positions, markers
+
+
 def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
     OUT_DIR = os.path.join(DATA_DIR, 'sba')
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -195,47 +232,6 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     # return out_fpath
 
 
-def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}) -> str:
-    OUT_DIR = os.path.join(DATA_DIR, 'tri')
-    os.makedirs(OUT_DIR, exist_ok=True)
-    markers = misc.get_markers(mode='all')
-    k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
-
-    # save reconstruction parameters
-    params['start_frame'] = start_frame
-    params['end_frame'] = end_frame
-    params['dlc_thresh'] = dlc_thresh
-    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(params, f)
-
-    # triangulation
-    points_2d_df = points_2d_df.query(f'likelihood > {dlc_thresh}')
-    points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
-    points_3d_df = utils.get_pairwise_3d_points_from_df(
-        points_2d_df,
-        k_arr, d_arr.reshape((-1,4)), r_arr, t_arr,
-        triangulate_points_fisheye
-    )
-    points_3d_df['point_index'] = points_3d_df.index
-
-    # calculate residual error
-    pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
-    save_error_dists(pix_errors, OUT_DIR)
-
-    # ========= SAVE TRIANGULATION RESULTS ========
-    positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
-
-    for i, marker in enumerate(markers):
-        marker_pts = points_3d_df[points_3d_df['marker']==marker][['frame', 'x', 'y', 'z']].values
-        for frame, *pt_3d in marker_pts:
-            positions[int(frame) - start_frame, i] = pt_3d
-
-    get_lengths(positions, markers)
-
-    # out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=False)
-    # return out_fpath
-
-
 def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
     video_fpaths = sorted(glob(os.path.join(DATA_DIR, 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
@@ -247,6 +243,21 @@ def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
     app.create_labeled_videos(video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh, lure=False)
 
     return params
+
+
+def rotation_matrix_from_vectors(vec1, vec2):
+    """ Find the rotation matrix that aligns vec1 to vec2
+    :param vec1: A 3d "source" vector
+    :param vec2: A 3d "destination" vector
+    :return mat: A transform matrix (3x3) which when applied to vec1, aligns it with vec2.
+    """
+    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+    return rotation_matrix
 
 
 # ========= MAIN ========
@@ -339,19 +350,35 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
-    plt.close('all')
-    print('========== SBA ==========\n')
-    sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
-    plt.close('all')
+    # get 3d positions
+    positions, markers = tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
+    indices = [markers.index(l) for l in ['nose', 'r_eye', 'l_eye']]
 
-    if args.plot:
-        print('Plotting results...')
-        data_fpaths = [
-            os.path.join(DATA_DIR, 'tri', 'tri.pickle'),    # plot is too busy when tri is included
-            os.path.join(DATA_DIR, 'sba', 'sba.pickle'),
-            os.path.join(DATA_DIR, 'ekf', 'ekf.pickle'),
-            os.path.join(DATA_DIR, 'fte', 'fte.pickle')
-        ]
-        app.plot_multiple_cheetah_reconstructions(data_fpaths, reprojections=False, dark_mode=True)
+    n_frame, _, _ = positions.shape
+    point2ds = []
+    for f in range(n_frame):
+        n_pt = positions[f, markers.index('nose'), :]
+        r_pt = positions[f, markers.index('r_eye'), :]
+        l_pt = positions[f, markers.index('l_eye'), :]
+
+        if np.any(np.isnan(n_pt)) or np.any(np.isnan(r_pt)) or np.any(np.isnan(l_pt)):
+            continue
+
+        # get the normal vector of the plane made by the three points
+        v_n2l = l_pt - n_pt
+        v_n2r = r_pt - n_pt
+        normal_vector = np.cross(v_n2l, v_n2r)
+
+        # get the rotation matrix to transform the normal vector into z-axis
+        rotmat = rotation_matrix_from_vectors(normal_vector, (0,0,1))
+        point2d = np.empty((3, 2))
+        point2d[:] = np.nan
+        point2d[0, :] = np.array([0,0])
+        point2d[1, :] = (rotmat @ v_n2l)[:2]
+        point2d[2, :] = (rotmat @ v_n2r)[:2]
+        point2ds.append(point2d)
+
+
+    # print('========== SBA ==========\n')
+    # sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
+    # plt.close('all')
