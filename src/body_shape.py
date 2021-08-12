@@ -466,7 +466,7 @@ if __name__ == '__main__':
         executable='/tmp/build/bin/ipopt'
     )
     # solver options
-    opt.options['tol'] = 1e-6
+    opt.options['tol'] = 1e-10
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
@@ -551,7 +551,7 @@ if __name__ == '__main__':
         executable='/tmp/build/bin/ipopt'
     )
     # solver options
-    opt.options['tol'] = 1e-6
+    opt.options['tol'] = 1e-10
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
@@ -591,5 +591,5 @@ if __name__ == '__main__':
     print(f'Saved {out_fpath}\n')
 
     print('eye_length:', model.eye_length.value)
-    print('nose_length:', model.nose_length.value)
+    print('nose_length:', model.nose_length.value / np.sqrt(2))
 

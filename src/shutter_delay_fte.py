@@ -152,7 +152,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 5   # measurement standard deviation (default: 5)
+    R = 2   # measurement standard deviation (default: 5)
     _Q = [  # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
@@ -494,7 +494,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # solver options
-    opt.options['tol'] = 1e-1
+    opt.options['tol'] = 1e-10
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
