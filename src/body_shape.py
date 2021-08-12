@@ -4,7 +4,6 @@ import json
 import numpy as np
 import sympy as sp
 import pandas as pd
-import pyomo.environ as pyo
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, List
@@ -13,6 +12,8 @@ from time import time
 from pprint import pprint
 from tqdm import tqdm
 from argparse import ArgumentParser
+import pyomo.environ as pyo
+from pyomo.core.kernel import conic
 from pyomo.opt import SolverFactory
 
 from lib import misc, utils, app, metric
@@ -354,6 +355,7 @@ if __name__ == '__main__':
     positions, markers = tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     indices = [markers.index(l) for l in ['nose', 'r_eye', 'l_eye']]
 
+    # get 2d points
     n_frame, _, _ = positions.shape
     point2ds = []
     for f in range(n_frame):
@@ -373,11 +375,94 @@ if __name__ == '__main__':
         rotmat = rotation_matrix_from_vectors(normal_vector, (0,0,1))
         point2d = np.empty((3, 2))
         point2d[:] = np.nan
-        point2d[0, :] = np.array([0,0])
-        point2d[1, :] = (rotmat @ v_n2l)[:2]
-        point2d[2, :] = (rotmat @ v_n2r)[:2]
+        nose_2d = np.array([0,0])
+        leye_2d = (rotmat @ v_n2l)[:2]
+        reye_2d = (rotmat @ v_n2r)[:2]
+        # set the center of mass for the origin
+        com = np.array([nose_2d, leye_2d, reye_2d]).mean(axis=0)
+        point2d[0, :] = nose_2d - com
+        point2d[1, :] = leye_2d - com
+        point2d[2, :] = reye_2d - com
+
         point2ds.append(point2d)
 
+    point2ds = np.array(point2ds, dtype=np.float32)     # [n, markers, xy]
+
+    # fitting each 2d point sets
+    model = pyo.ConcreteModel(name='Facial 2D points')
+
+    model.n_frame = point2ds.shape[0]
+
+    model.F = pyo.RangeSet(point2ds.shape[0])   # number of frames
+    model.L = pyo.RangeSet(point2ds.shape[1])   # number of labels(markers)
+    model.D2 = pyo.RangeSet(point2ds.shape[2])  # x and y
+
+    def init_measurements(m, f, l, d2):
+        return point2ds[f-1, l-1, d2-1]
+    model.measures = pyo.Param(model.F, model.L, model.D2, initialize=init_measurements)
+
+    model.rot_angle = pyo.Var(model.F, domain=pyo.Reals, bounds=(-np.pi, np.pi), initialize=0.0)
+    model.rot_mat = pyo.Var(model.F, model.D2, model.D2, domain=pyo.Reals, initialize=0.0)
+    model.translation = pyo.Var(model.F, model.D2, domain=pyo.Reals, initialize=0.0)
+
+    model.translation_constraint = pyo.Constraint(
+        model.F,
+        rule=lambda m, f: sum(m.translation[f,d]**2 for d in m.D2) <= 10**2
+    )
+    model.angle2rotmat1 = pyo.Constraint(
+        model.F,
+        rule=lambda m, f: pyo.cos(m.rot_angle[f]) == m.rot_mat[f, 1, 1]
+    )
+    model.angle2rotmat2 = pyo.Constraint(
+        model.F,
+        rule=lambda m, f: -pyo.sin(m.rot_angle[f]) == m.rot_mat[f, 1, 2]
+    )
+    model.angle2rotmat3 = pyo.Constraint(
+        model.F,
+        rule=lambda m, f: pyo.sin(m.rot_angle[f]) == m.rot_mat[f, 2, 1]
+    )
+    model.angle2rotmat4 = pyo.Constraint(
+        model.F,
+        rule=lambda m, f: pyo.cos(m.rot_angle[f]) == m.rot_mat[f, 2, 2]
+    )
+
+    def obj(m):
+        cost = 0
+        for l in m.L:
+            # calculate the center of mass
+            com = [
+                sum(m.measures[:, l, d]) / m.n_frame
+                for d in m.D2
+            ]
+
+            # get the sum of lengths with the center of mass
+            for f in m.F:
+                pt = [
+                    sum(m.measures[f,l,e] * m.rot_mat[f,d,e] for e in m.D2) + m.translation[f,d]
+                    for d in m.D2
+                ]
+                cost += sum((pt[d-1] - com[d-1]) ** 2 for d in m.D2)
+        return cost
+    model.obj = pyo.Objective(rule=obj)
+
+    # run the solver
+    opt = SolverFactory(
+        'ipopt',
+        executable='/tmp/build/bin/ipopt'
+    )
+    # solver options
+    opt.options['tol'] = 1e-1
+    opt.options['print_level']  = 5
+    opt.options['max_iter']     = 10000
+    opt.options['max_cpu_time'] = 10000
+    opt.options['OF_print_timing_statistics'] = 'yes'
+    opt.options['OF_print_frequency_iter']    = 10
+    opt.options['OF_hessian_approximation']   = 'limited-memory'
+    opt.options['linear_solver'] = 'ma86'
+
+    results = opt.solve(model, tee=True)
+
+    # plot
 
     # print('========== SBA ==========\n')
     # sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
