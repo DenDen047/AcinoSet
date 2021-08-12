@@ -466,7 +466,7 @@ if __name__ == '__main__':
         executable='/tmp/build/bin/ipopt'
     )
     # solver options
-    opt.options['tol'] = 1e-1
+    opt.options['tol'] = 1e-6
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
@@ -532,8 +532,8 @@ if __name__ == '__main__':
         cost = 0
         base = [
             [0, -m.nose_length],    # nose
-            [-m.eye_length, 0], # r_eye
-            [m.eye_length, 0],  # l_eye
+            [m.eye_length, 0],  # r_eye
+            [-m.eye_length, 0], # l_eye
         ]
         for l in m.L:
             for f in m.F:
@@ -551,7 +551,7 @@ if __name__ == '__main__':
         executable='/tmp/build/bin/ipopt'
     )
     # solver options
-    opt.options['tol'] = 1e-1
+    opt.options['tol'] = 1e-6
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
@@ -563,19 +563,33 @@ if __name__ == '__main__':
     results = opt.solve(model, tee=True)
 
     # extract result
-    print(model.eye_length.value)
-    print(model.nose_length.value)
+    base = np.array([
+        [0, -model.nose_length.value],    # nose
+        [model.eye_length.value, 0],  # r_eye
+        [-model.eye_length.value, 0], # l_eye
+    ])
+    theta = model.rot_angle.value
+    rot_mat = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta), np.cos(theta)]
+    ])
+    coe = np.array([model.coe_position[d].value for d in model.D2])
 
     # plot
     fig, ax = plt.subplots()
     for k, points in points_dict.items():
         ax.scatter(points[:, 0], points[:, 1], label=k)
+        face_pt = rot_mat @ base[markers.index(k),:] + coe
+        ax.plot([coe[0], face_pt[0]], [coe[1], face_pt[1]], marker='o')
     ax.legend()
     ax.axis('equal')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_title('Overlayed Face Labels')
-    out_fpath = os.path.join(OUT_DIR, 'step1_overlay_labels.pdf')
+    out_fpath = os.path.join(OUT_DIR, 'step2_overlay_labels.pdf')
     fig.savefig(out_fpath, transparent=True)
     print(f'Saved {out_fpath}\n')
+
+    print('eye_length:', model.eye_length.value)
+    print('nose_length:', model.nose_length.value)
 
