@@ -355,7 +355,10 @@ if __name__ == '__main__':
     positions, markers = tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     indices = [markers.index(l) for l in ['nose', 'r_eye', 'l_eye']]
 
+    OUT_DIR = os.path.join(DATA_DIR, 'body_shape')
+
     # get 2d points
+    positions = positions[start_frame:end_frame, :, :]
     n_frame, _, _ = positions.shape
     point2ds = []
     for f in range(n_frame):
@@ -388,11 +391,23 @@ if __name__ == '__main__':
 
     point2ds = np.array(point2ds, dtype=np.float32)     # [n, markers, xy]
 
+    # plot
+    fig, ax = plt.subplots()
+    for i in range(point2ds.shape[1]):
+        ax.scatter(point2ds[:, i, 0], point2ds[:, i, 1], label=markers[i])
+    ax.legend()
+    ax.axis('equal')
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_title('Overlayed Face Labels')
+    out_fpath = os.path.join(OUT_DIR, 'step0_overlay_labels.pdf')
+    fig.savefig(out_fpath, transparent=True)
+    print(f'Saved {out_fpath}\n')
+
     # fitting each 2d point sets
     model = pyo.ConcreteModel(name='Facial 2D points')
 
     model.n_frame = point2ds.shape[0]
-
     model.F = pyo.RangeSet(point2ds.shape[0])   # number of frames
     model.L = pyo.RangeSet(point2ds.shape[1])   # number of labels(markers)
     model.D2 = pyo.RangeSet(point2ds.shape[2])  # x and y
@@ -405,10 +420,10 @@ if __name__ == '__main__':
     model.rot_mat = pyo.Var(model.F, model.D2, model.D2, domain=pyo.Reals, initialize=0.0)
     model.translation = pyo.Var(model.F, model.D2, domain=pyo.Reals, initialize=0.0)
 
-    model.translation_constraint = pyo.Constraint(
-        model.F,
-        rule=lambda m, f: sum(m.translation[f,d]**2 for d in m.D2) <= 10**2
-    )
+    # model.translation_constraint = pyo.Constraint(
+    #     model.F,
+    #     rule=lambda m, f: sum(m.translation[f,d]**2 for d in m.D2) <= 100**2
+    # )
     model.angle2rotmat1 = pyo.Constraint(
         model.F,
         rule=lambda m, f: pyo.cos(m.rot_angle[f]) == m.rot_mat[f, 1, 1]
@@ -460,10 +475,107 @@ if __name__ == '__main__':
     opt.options['OF_hessian_approximation']   = 'limited-memory'
     opt.options['linear_solver'] = 'ma86'
 
-    results = opt.solve(model, tee=True)
+    results = opt.solve(model, tee=False)
+
+    # extract the result
+    points_dict = {}
+    for l in model.L:
+        points = []
+        for f in model.F:
+            theta = model.rot_angle[f].value
+            rot_mat = np.array([
+                [np.cos(theta), -np.sin(theta)],
+                [np.sin(theta), np.cos(theta)]
+            ])
+            t = np.array([model.translation[f,d].value for d in model.D2])
+            p = point2ds[f-1, l-1, :]
+            points.append(rot_mat @ p + t)
+        points_dict[markers[l-1]] = np.array(points)   # [frame, xy]
 
     # plot
+    fig, ax = plt.subplots()
+    for k, points in points_dict.items():
+        ax.scatter(points[:, 0], points[:, 1], label=k)
+    ax.legend()
+    ax.axis('equal')
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_title('Overlayed Face Labels')
+    out_fpath = os.path.join(OUT_DIR, 'step1_overlay_labels.pdf')
+    fig.savefig(out_fpath, transparent=True)
+    print(f'Saved {out_fpath}\n')
 
-    # print('========== SBA ==========\n')
-    # sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
+    # fitting T-face to point sets
+    model = pyo.ConcreteModel(name='T-shape Face')
+
+    model.n_frame = point2ds.shape[0]
+    model.F = pyo.RangeSet(point2ds.shape[0])   # number of frames
+    model.L = pyo.RangeSet(point2ds.shape[1])   # number of labels(markers)
+    model.D2 = pyo.RangeSet(point2ds.shape[2])  # x and y
+
+    def init_measurements(m, f, l, d2):
+        return points_dict[markers[l-1]][f-1, d2-1]
+    model.measures = pyo.Param(model.F, model.L, model.D2, initialize=init_measurements)
+
+    model.eye_length = pyo.Var(domain=pyo.PositiveReals, initialize=0.03)
+    model.nose_length = pyo.Var(domain=pyo.PositiveReals, initialize=0.07)
+    model.rot_angle = pyo.Var(domain=pyo.Reals, bounds=(-np.pi, np.pi), initialize=0.0)
+    model.rot_mat = pyo.Var(model.D2, model.D2, domain=pyo.Reals, initialize=0.0)
+    model.coe_position = pyo.Var(model.D2, domain=pyo.Reals, initialize=0.0)
+
+    model.angle2rotmat1 = pyo.Constraint(rule=lambda m: pyo.cos(m.rot_angle) == m.rot_mat[1, 1])
+    model.angle2rotmat2 = pyo.Constraint(rule=lambda m: -pyo.sin(m.rot_angle) == m.rot_mat[1, 2])
+    model.angle2rotmat3 = pyo.Constraint(rule=lambda m: pyo.sin(m.rot_angle) == m.rot_mat[2, 1])
+    model.angle2rotmat4 = pyo.Constraint(rule=lambda m: pyo.cos(m.rot_angle) == m.rot_mat[2, 2])
+
+    def obj(m):
+        cost = 0
+        base = [
+            [0, -m.nose_length],    # nose
+            [-m.eye_length, 0], # r_eye
+            [m.eye_length, 0],  # l_eye
+        ]
+        for l in m.L:
+            for f in m.F:
+                pt = [
+                    sum(m.rot_mat[i,j] * base[l-1][j-1] for j in m.D2) + m.coe_position[i]
+                    for i in m.D2
+                ]
+                cost += sum((pt[d-1] - m.measures[f,l,d]) ** 2 for d in m.D2)
+        return cost
+    model.obj = pyo.Objective(rule=obj)
+
+    # run the solver
+    opt = SolverFactory(
+        'ipopt',
+        executable='/tmp/build/bin/ipopt'
+    )
+    # solver options
+    opt.options['tol'] = 1e-1
+    opt.options['print_level']  = 5
+    opt.options['max_iter']     = 10000
+    opt.options['max_cpu_time'] = 10000
+    opt.options['OF_print_timing_statistics'] = 'yes'
+    opt.options['OF_print_frequency_iter']    = 10
+    opt.options['OF_hessian_approximation']   = 'limited-memory'
+    opt.options['linear_solver'] = 'ma86'
+
+    results = opt.solve(model, tee=True)
+
+    # extract result
+    print(model.eye_length.value)
+    print(model.nose_length.value)
+
+    # plot
+    fig, ax = plt.subplots()
+    for k, points in points_dict.items():
+        ax.scatter(points[:, 0], points[:, 1], label=k)
+    ax.legend()
+    ax.axis('equal')
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_title('Overlayed Face Labels')
+    out_fpath = os.path.join(OUT_DIR, 'step1_overlay_labels.pdf')
+    fig.savefig(out_fpath, transparent=True)
+    print(f'Saved {out_fpath}\n')
+
