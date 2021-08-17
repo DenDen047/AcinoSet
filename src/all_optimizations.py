@@ -113,7 +113,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     # symbolic vars
     idx       = misc.get_pose_params(mode=mode)
     sym_list  = sp.symbols(list(idx.keys()))
-    positions = misc.get_3d_marker_coords(sym_list, mode=mode)
+    positions = misc.get_3d_marker_coords({'x': sym_list}, mode=mode)
 
     t0 = time()
 
@@ -150,7 +150,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 3   # measurement standard deviation (default: 5)
+    R = 2   # measurement standard deviation (default: 5)
     _Q = [  # model parameters variance
         4, 7, 5,    # head position in inertial
         13, 9, 26,  # head rotation in inertial
@@ -473,7 +473,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # solver options
-    opt.options['tol'] = 1e-1
+    opt.options['tol'] = 1e-10
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
@@ -505,7 +505,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # calculate residual error
-    positions_3d = np.array([misc.get_3d_marker_coords(state, mode=mode) for state in states['x']])
+    positions_3d = np.array([misc.get_3d_marker_coords({'x': state}, directions=True, mode=mode) for state in states['x']])
     frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
     n_frames = len(frames)
     points_3d = []
@@ -981,10 +981,10 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc_head')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -1050,9 +1050,9 @@ if __name__ == '__main__':
     print('========== SBA ==========\n')
     sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')
-    print('========== EKF ==========\n')
-    ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    plt.close('all')
+    # print('========== EKF ==========\n')
+    # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    # plt.close('all')
     print('========== FTE ==========\n')
     fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
     plt.close('all')

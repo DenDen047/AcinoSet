@@ -533,7 +533,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=False)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=True, save_videos=True)
 
     # calculate residual error
     positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=False, mode=mode)
