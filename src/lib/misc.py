@@ -20,6 +20,13 @@ def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
         s = [
             'nose', 'r_eye', 'l_eye'
         ]
+    elif mode == 'upper_body':
+        s = [
+            'nose', 'r_eye', 'l_eye', 'neck_base',
+            'spine',
+            'r_shoulder',
+            'l_shoulder',
+        ]
     elif mode == 'all':
         s = [
             'nose', 'r_eye', 'l_eye', 'neck_base',
@@ -55,7 +62,7 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
             'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
             'theta_2',                   # front torso
-            'phi_3', 'theta_3', 'psi_3', # back torso
+            'phi_3', 'theta_3', 'psi_3', # back torso   TODO: is phi_3 needed?
             'theta_4', 'psi_4',          # tail_base
             'theta_5', 'psi_5',          # tail_mid
             'theta_6', 'theta_7',        # l_shoulder, l_front_knee
@@ -64,6 +71,13 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'theta_12', 'theta_13',      # r_hip, r_back_knee
             'x_l', 'y_l', 'z_l'          # lure position in inertial
         ]   # exludes paws & lure for now!
+    elif mode == 'upper_body':
+        states = [
+            'x_0', 'y_0', 'z_0',         # head position in inertial
+            'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
+            'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
+            'theta_2',                   # front torso
+        ]
     elif mode == 'head':
         states = [
             'x_0', 'y_0', 'z_0',         # head position in inertial
@@ -232,6 +246,34 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
+        ]
+    elif mode == 'upper_body':
+        # rotations
+        RI_0  = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])         # head
+        R0_I  = RI_0.T
+        RI_1  = rot_z(x[idx['psi_1']]) @ rot_x(x[idx['phi_1']]) @ rot_y(x[idx['theta_1']]) @ RI_0  # neck
+        R1_I  = RI_1.T
+        RI_2  = rot_y(x[idx['theta_2']]) @ RI_1     # front torso
+        R2_I  = RI_2.T
+
+        # positions
+        p_head          = func([x[idx['x_0']], x[idx['y_0']], x[idx['z_0']]])
+
+        p_l_eye         = p_head         + R0_I  @ func([0, 0.03, 0])
+        p_r_eye         = p_head         + R0_I  @ func([0, -0.03, 0])
+        p_nose          = p_head         + R0_I  @ func([0.055, 0, -0.055])
+
+        p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
+        p_spine         = p_neck_base    + R2_I  @ func([-0.37, 0, 0])
+
+        p_l_shoulder    = p_neck_base    + R2_I  @ func([-0.04, 0.08, -0.10])
+        p_r_shoulder    = p_neck_base    + R2_I  @ func([-0.04, -0.08, -0.10])
+
+        result = [
+            p_nose.T, p_r_eye.T, p_l_eye.T,
+            p_neck_base.T, p_spine.T,
+            p_r_shoulder.T,
+            p_l_shoulder.T,
         ]
 
     if directions:
