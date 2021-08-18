@@ -152,7 +152,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 2   # measurement standard deviation (default: 5)
+    R = 3   # measurement standard deviation (default: 5)
     _Q = {  # model parameters variance
         'x_0': 4,
         'y_0': 7,
@@ -160,7 +160,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         'phi_0': 13,
         'theta_0': 9,
         'psi_0': 26,
-        'l_1': 12,
+        'l_1': 32,
         'phi_1': 32,
         'theta_1': 18,
         'psi_1': 12,
@@ -282,7 +282,6 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         'cos': pyo.cos,
         'ImmutableDenseMatrix': np.array
     }
-    # pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])   # this is not used
     pos_funcs  = []
     for i in range(positions.shape[0]):
         lamb = sp.lambdify(sym_list, positions[i,:], modules=[func_map])
@@ -416,31 +415,48 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def r_back_knee_theta_13(m, n):
         return abs(m.x[n,idx['theta_13']] - np.pi/2) <= np.pi / 2
 
-    if mode == 'default':
+    if 'phi_0' in markers:
         m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
+    if 'theta_0' in markers:
         m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
+    if 'phi_1' in markers:
         m.neck_phi_1           = pyo.Constraint(m.N, rule=neck_phi_1)
+    if 'theta_1' in markers:
         m.neck_theta_1         = pyo.Constraint(m.N, rule=neck_theta_1)
+    if 'psi_1' in markers:
         m.neck_psi_1           = pyo.Constraint(m.N, rule=neck_psi_1)
+    if 'theta_2' in markers:
         m.front_torso_theta_2  = pyo.Constraint(m.N, rule=front_torso_theta_2)
+    if 'theta_3' in markers:
         m.back_torso_theta_3   = pyo.Constraint(m.N, rule=back_torso_theta_3)
+    if 'phi_3' in markers:
         m.back_torso_phi_3     = pyo.Constraint(m.N, rule=back_torso_phi_3)
+    if 'psi_3' in markers:
         m.back_torso_psi_3     = pyo.Constraint(m.N, rule=back_torso_psi_3)
+    if 'theta_4' in markers:
         m.tail_base_theta_4    = pyo.Constraint(m.N, rule=tail_base_theta_4)
+    if 'psi_4' in markers:
         m.tail_base_psi_4      = pyo.Constraint(m.N, rule=tail_base_psi_4)
+    if 'theta_5' in markers:
         m.tail_mid_theta_5     = pyo.Constraint(m.N, rule=tail_mid_theta_5)
+    if 'psi_5' in markers:
         m.tail_mid_psi_5       = pyo.Constraint(m.N, rule=tail_mid_psi_5)
+    if 'theta_6' in markers:
         m.l_shoulder_theta_6   = pyo.Constraint(m.N, rule=l_shoulder_theta_6)
+    if 'theta_7' in markers:
         m.l_front_knee_theta_7 = pyo.Constraint(m.N, rule=l_front_knee_theta_7)
+    if 'theta_8' in markers:
         m.r_shoulder_theta_8   = pyo.Constraint(m.N, rule=r_shoulder_theta_8)
+    if 'theta_9' in markers:
         m.r_front_knee_theta_9 = pyo.Constraint(m.N, rule=r_front_knee_theta_9)
+    if 'theta_10' in markers:
         m.l_hip_theta_10       = pyo.Constraint(m.N, rule=l_hip_theta_10)
+    if 'theta_11' in markers:
         m.l_back_knee_theta_11 = pyo.Constraint(m.N, rule=l_back_knee_theta_11)
+    if 'theta_12' in markers:
         m.r_hip_theta_12       = pyo.Constraint(m.N, rule=r_hip_theta_12)
+    if 'theta_13' in markers:
         m.r_back_knee_theta_13 = pyo.Constraint(m.N, rule=r_back_knee_theta_13)
-    elif mode == 'head':
-        m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
-        m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
 
     # ===== MEASUREMENT CONSTRAINTS =====
     print('- Measurement')
@@ -449,15 +465,16 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
         tau = m.shutter_delay[n, c]
-        x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']] * tau + m.ddx[n,idx['x_0']] * (tau**2)
-        y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']] * tau + m.ddx[n,idx['y_0']] * (tau**2)
-        z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']] * tau + m.ddx[n,idx['z_0']] * (tau**2)
+        x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
+        y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
+        z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
     m.measurement = pyo.Constraint(m.N, m.C, m.L, m.D2, rule=measurement_constraints)
 
     # ===== INTEGRATION CONSTRAINTS =====
     print('- Numerical integration')
+    l_idx = [i for k, i in idx.items() if k[:2] == 'l_']
 
     def backwards_euler_pos(m,n,p):
         if n > 1:
@@ -473,7 +490,10 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     def constant_acc(m, n, p):
         if n > 1:
-            return m.ddx[n,p] == m.ddx[n-1,p] + m.slack_model[n,p]
+            if p in l_idx:
+                return (None, m.ddx[n,p], None)
+            else:
+                return m.ddx[n,p] == m.ddx[n-1,p] + m.slack_model[n,p]
         else:
             return pyo.Constraint.Skip
 
@@ -511,7 +531,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # solver options
-    opt.options['tol'] = 1e-5
+    opt.options['tol'] = 1e-3
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
