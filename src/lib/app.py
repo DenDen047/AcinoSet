@@ -4,6 +4,7 @@ import pickle
 import cv2 as cv
 import numpy as np
 from glob import glob
+from typing import Dict, List
 from . import utils
 from .points import find_corners_images, EOM_curve_fit
 from . import misc
@@ -356,8 +357,8 @@ def get_vid_info(path_dir, vid_extension='mp4'):
 
 
 def create_labeled_videos(
-    point2d_dfs,
-    video_fpaths,
+    point2d_dfs: List,
+    video_fpaths: List,
     videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None,
     draw_skeleton=False,
     pcutoff=0.5, dotsize=3,
@@ -400,7 +401,6 @@ def create_labeled_videos(
         proc_video,
         out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color
     )
-
     iterable = [{
         'point2d_df': a,
         'video_fpath': b,
