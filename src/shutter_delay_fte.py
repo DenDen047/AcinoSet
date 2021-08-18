@@ -511,7 +511,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # solver options
-    opt.options['tol'] = 1e-10
+    opt.options['tol'] = 1e-5
     opt.options['print_level']  = 5
     opt.options['max_iter']     = 10000
     opt.options['max_cpu_time'] = 10000
