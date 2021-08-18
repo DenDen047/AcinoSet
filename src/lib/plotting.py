@@ -353,30 +353,37 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
     if mplstyle_fpath is not None:
         plt.style.use(mplstyle_fpath)
 
-    if mode == 'default':
-        titles = [#'Lure positions',
-                'Head positions', 'Head angles', 'Neck angles',
-                'Front torso angle', 'Back torso angles',
-                'Tail base angles', 'Tail mid angles',
-                'Left shoulder angle', 'Left front knee angle',
-                'Right shoulder angles', 'Right front knee angle',
-                'Left hip angle', 'Left back knee angle',
-                'Right hip angle', 'Right back knee angle']
-        lbls = [#['x_l', 'y_l', 'z_l'], # exclude lure for now
-                ['x_0', 'y_0', 'z_0'],
-                ['phi_0', 'theta_0', 'psi_0'], ['phi_1', 'theta_1', 'psi_1'],
-                ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
-                ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
-                ['theta_6'], ['theta_7'],
-                ['theta_8'], ['theta_9'],
-                ['theta_10'], ['theta_11'],
-                ['theta_12'], ['theta_13']]
-    elif mode == 'head':
-        titles = ['Head positions', 'Head angles',]
-        lbls = [['x_0', 'y_0', 'z_0'], ['phi_0', 'theta_0', 'psi_0']]
+    _titles = [
+        'Lure positions',
+        'Head positions', 'Head angles', 'Neck angles',
+        'Front torso angle', 'Back torso angles',
+        'Tail base angles', 'Tail mid angles',
+        'Left shoulder angle', 'Left front knee angle',
+        'Right shoulder angles', 'Right front knee angle',
+        'Left hip angle', 'Left back knee angle',
+        'Right hip angle', 'Right back knee angle'
+    ]
+    _label_lists = [
+        ['x_l', 'y_l', 'z_l'], # exclude lure for now
+        ['x_0', 'y_0', 'z_0'],
+        ['phi_0', 'theta_0', 'psi_0'], ['phi_1', 'theta_1', 'psi_1'],
+        ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
+        ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
+        ['theta_6'], ['theta_7'],
+        ['theta_8'], ['theta_9'],
+        ['theta_10'], ['theta_11'],
+        ['theta_12'], ['theta_13']
+    ]
 
     idxs = get_pose_params(mode=mode)
-    idxs = [[idxs[l] for l in lbl] for lbl in lbls]
+    titles = []
+    label_lists = []
+    for title, lbl in zip(_titles, _label_lists):
+        if set(lbl).issubset(idxs.keys()):
+            titles.append(title)
+            label_lists.append(lbl)
+
+    idxs = [[idxs[l] for l in lbl] for lbl in label_lists]
 
     plt_shape = [len(titles)//2, 2]
     fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
@@ -387,7 +394,7 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
             ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
             ax.set_title(titles[k])
             ax.plot(x[:, idxs[k]])
-            lgnd = lbls[k]
+            lgnd = label_lists[k]
             if smoothed_x is not None:
                 ax.plot(smoothed_x[:, idxs[k]])
                 lgnd += [l + ' (smoothed)' for l in lgnd]

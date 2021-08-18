@@ -153,21 +153,38 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
     R = 2   # measurement standard deviation (default: 5)
-    _Q = [  # model parameters variance
-        4, 7, 5,    # head position in inertial
-        13, 9, 26,  # head rotation in inertial
-        12, 32, 18, 12, # neck
-        43,         # front torso
-        10, 53, 34, # back torso
-        90, 43,     # tail_base
-        118, 51,    # tail_mid
-        247, 186,   # l_shoulder, l_front_knee
-        194, 164,   # r_shoulder, r_front_knee
-        295, 243,   # l_hip, l_back_knee
-        334, 149,   # r_hip, r_back_knee
-        4, 7, 5,    # lure position in inertial
-    ][:len(sym_list)]
-    Q = np.array(_Q, dtype=np.float64)**2
+    _Q = {  # model parameters variance
+        'x_0': 4,
+        'y_0': 7,
+        'z_0': 5,
+        'phi_0': 13,
+        'theta_0': 9,
+        'psi_0': 26,
+        'l_1': 12,
+        'phi_1': 32,
+        'theta_1': 18,
+        'psi_1': 12,
+        'theta_2': 43,
+        'phi_3': 10,
+        'theta_3': 53,
+        'psi_3': 34,
+        'theta_4': 90,
+        'psi_4': 43,
+        'theta_5': 118,
+        'psi_5': 51,
+        'theta_6': 247,
+        'theta_7': 186,
+        'theta_8': 194,
+        'theta_9': 164,
+        'theta_10': 295,
+        'theta_11': 243,
+        'theta_12': 334,
+        'theta_13': 149,
+        'x_l': 4,
+        'y_l': 7,
+        'z_l': 5,
+    }
+    Q = np.array([_Q[str(s)] for s in sym_list], dtype=np.float64)**2
 
     proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
 
@@ -594,7 +611,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'head'
+    mode = 'upper_body'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
@@ -613,8 +630,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
