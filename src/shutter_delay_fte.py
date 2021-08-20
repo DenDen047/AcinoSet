@@ -205,7 +205,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     #===================================================
     #                   Load in data
     #===================================================
-    print('Generating pairwise 3D points')
+    print('----- Generating pairwise 3D points -----')
     points_3d_df = utils.get_pairwise_3d_points_from_df(
         points_2d_df.query(f'likelihood > {dlc_thresh}'),
         K_arr, D_arr, R_arr, t_arr,
@@ -215,7 +215,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     #===================================================
     #                   Optimisation
     #===================================================
-    print('Initialising params & variables')
+    print('----- Initialising params & Variables -----')
     m = pyo.ConcreteModel(name='Cheetah from measurements')
 
     # ===== SETS =====
@@ -288,10 +288,11 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         pos_funcs.append(lamb)
 
     # ===== VARIABLES INITIALIZATION =====
+    print('Parameters')
 
     # estimate initial points
     frame_est = np.arange(end_frame + 1)
-    print('frame_est:', frame_est.shape)
+    print('- frame_est:', frame_est.shape)
     init_x    = np.zeros((N, P))
     init_dx   = np.zeros((N, P))
     init_ddx  = np.zeros((N, P))
@@ -306,11 +307,11 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     z_est   = frame_est*z_slope + z_intercept
     psi_est = np.arctan2(y_slope, x_slope)
 
-    print('idx[x_0]:', idx['x_0'])
-    print('init_x:', init_x.shape)
-    print('x_est:', x_est.shape)
-    print('start_frame:', start_frame)
-    print('end_frame:', end_frame)
+    print('- idx[x_0]:', idx['x_0'])
+    print('- init_x:', init_x.shape)
+    print('- x_est:', x_est.shape)
+    print('- start_frame:', start_frame)
+    print('- end_frame:', end_frame)
     init_x[:, idx['x_0']]   = x_est[start_frame:end_frame+1]
     init_x[:, idx['y_0']]   = y_est[start_frame:end_frame+1]
     init_x[:, idx['z_0']]   = z_est[start_frame:end_frame+1]
@@ -462,12 +463,16 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     print('- Measurement')
 
     def measurement_constraints(m, n, c, l, d2):
+        # m ... model
+        # n ... frame
+        # c ... camera
+        # l ... DLC label
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
         tau = m.shutter_delay[n, c]
-        x = m.poses[n,l,idx['x_0']] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
-        y = m.poses[n,l,idx['y_0']] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
-        z = m.poses[n,l,idx['z_0']] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+        x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
+        y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
+        z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
     m.measurement = pyo.Constraint(m.N, m.C, m.L, m.D2, rule=measurement_constraints)
@@ -543,6 +548,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     t1 = time()
     print('\nInitialization took {0:.2f} seconds\n'.format(t1 - t0))
 
+    print('----- Optimization -----')
     t0 = time()
     results = opt.solve(m, tee=True)
     t1 = time()
@@ -551,7 +557,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     app.stop_logging()
 
     # ========= SAVE FTE RESULTS ========
-    print('=== Shutter Delay ===')
+    print('----- Shutter Delay -----')
     for c in m.C:
         result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
         print(f'Camera {c}')

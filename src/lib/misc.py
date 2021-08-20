@@ -182,7 +182,10 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         R13_I = RI_13.T
 
         # positions
-        p_head          = func([x[idx['x_0']], x[idx['y_0']], x[idx['z_0']]])
+        _x = x[idx['x_0']] + dx[idx['x_0']] * tau + ddx[idx['x_0']] * (tau**2)
+        _y = x[idx['y_0']] + dx[idx['y_0']] * tau + ddx[idx['y_0']] * (tau**2)
+        _z = x[idx['z_0']] + dx[idx['z_0']] * tau + ddx[idx['z_0']] * (tau**2)
+        p_head  = func([_x, _y, _z])
 
         p_l_eye         = p_head         + R0_I  @ func([0, 0.03, 0])
         p_r_eye         = p_head         + R0_I  @ func([0, -0.03, 0])
@@ -232,7 +235,6 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         _x = x[idx['x_0']] + dx[idx['x_0']] * tau + ddx[idx['x_0']] * (tau**2)
         _y = x[idx['y_0']] + dx[idx['y_0']] * tau + ddx[idx['y_0']] * (tau**2)
         _z = x[idx['z_0']] + dx[idx['z_0']] * tau + ddx[idx['z_0']] * (tau**2)
-
         p_head  = func([_x, _y, _z])
         # p_l_eye = p_head + R0_I @ func([0, 0.03, 0])
         # p_r_eye = p_head + R0_I @ func([0, -0.03, 0])
@@ -257,8 +259,10 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         R2_I = RI_2.T
 
         # positions
-        p_head          = func([x[idx['x_0']], x[idx['y_0']], x[idx['z_0']]])
-
+        _x = x[idx['x_0']] + dx[idx['x_0']] * tau + ddx[idx['x_0']] * (tau**2)
+        _y = x[idx['y_0']] + dx[idx['y_0']] * tau + ddx[idx['y_0']] * (tau**2)
+        _z = x[idx['z_0']] + dx[idx['z_0']] * tau + ddx[idx['z_0']] * (tau**2)
+        p_head  = func([_x, _y, _z])
         # p_l_eye         = p_head         + R0_I  @ func([0, 0.03, 0])
         # p_r_eye         = p_head         + R0_I  @ func([0, -0.03, 0])
         # p_nose          = p_head         + R0_I  @ func([0.055, 0, -0.055])
