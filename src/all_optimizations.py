@@ -929,23 +929,6 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
     save_error_dists(pix_errors, OUT_DIR)
 
-    # calculate the neck length
-    neck_lengths = []
-    points_df = points_3d_df.query('marker == "r_eye" | marker == "l_eye" | marker == "neck_base"')
-    for f in points_df['frame'].unique():
-        frame_df = points_df.query(f'frame == {f}')
-        if len(frame_df['marker'].unique()) == 3:
-            l_eye = frame_df.query('marker == "l_eye"')[['x', 'y', 'z']].to_numpy().flatten()
-            r_eye = frame_df.query('marker == "r_eye"')[['x', 'y', 'z']].to_numpy().flatten()
-            neck_base = frame_df.query('marker == "neck_base"')[['x', 'y', 'z']].to_numpy().flatten()
-            head = np.mean([l_eye, r_eye], axis=0)
-
-            neck_length = distance.cdist([head], [neck_base], 'euclidean').flatten()[0]
-            neck_lengths.append(neck_length)
-    print('---------- Neck Length ----------')
-    print(pd.DataFrame(pd.Series(neck_lengths).describe()).transpose())
-    print('')
-
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
 
