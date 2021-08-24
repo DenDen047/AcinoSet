@@ -115,6 +115,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
 
     # calculate the neck length
     neck_lengths = []
+    frames = []
     points_df = points_3d_df.query('marker == "nose" | marker == "r_eye" | marker == "l_eye" | marker == "neck_base"')
     for f in points_df['frame'].unique():
         frame_df = points_df.query(f'frame == {f}')
@@ -126,7 +127,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
             coe = np.mean([l_eye, r_eye], axis=0)
 
             # get the head position and pose with least square method
-            def f(x):
+            def func(x):
                 p_head = np.array([x[0], x[1], x[2]]) # [x,y,z]
                 phi, psi, theta = x[3], x[4], x[5]
 
@@ -142,15 +143,19 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
                     np.linalg.norm(nose - p_nose),
                 ])
             r = least_squares(
-                fun=f,
+                fun=func,
                 x0=np.array([coe[0], coe[1], coe[2], 0, 0, 0])
             )
             head = r.x[:3]
 
             neck_length = np.linalg.norm(head - neck_base)
+            frames.append(f)
             neck_lengths.append(neck_length)
     print('---------- Neck Length ----------')
     print(pd.DataFrame(pd.Series(neck_lengths).describe()).transpose())
+    indices = np.argsort(neck_lengths)
+    print('min: {} ({})'.format(neck_lengths[indices[0]], frames[indices[0]]))
+    print('max: {} ({})'.format(neck_lengths[indices[-1]], frames[indices[-1]]))
     print('')
 
     # ========= SAVE TRIANGULATION RESULTS ========
@@ -167,12 +172,19 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
 
 
 def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
+    df_fpaths = sorted(glob(os.path.join(OUT_DIR, 'cam[1-9]*.h5'))) # original vids should be in the parent dir
     video_fpaths = sorted(glob(os.path.join(DATA_DIR, 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
     # save parameters
     params['dlc_thresh'] = dlc_thresh
     with open(os.path.join(OUT_DIR, 'video_params.json'), 'w') as f:
         json.dump(params, f)
+
+    # load dataframes
+    point2d_dfs = []
+    for df_fpath in df_fpaths:
+        df = pd.read_hdf(df_fpath)
+        point2d_dfs.append(df)
 
     app.create_labeled_videos(point2d_dfs, video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh, lure=False)
 
@@ -206,10 +218,10 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc_manual')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    # print('========== DLC ==========\n')
-    # _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    print('========== DLC ==========\n')
+    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -228,7 +240,7 @@ if __name__ == '__main__':
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         target_markers = misc.get_markers(mode)
-        key_markers = ['nose', 'r_eye', 'l_eye']
+        key_markers = ['nose', 'r_eye', 'l_eye', 'neck_base']
 
         def frame_condition(i: int, n_markers: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
@@ -271,23 +283,3 @@ if __name__ == '__main__':
 
     print('========== Triangulation ==========\n')
     tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
-    plt.close('all')
-    # print('========== SBA ==========\n')
-    # sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
-    # print('========== EKF ==========\n')
-    # ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    # plt.close('all')
-    # print('========== FTE ==========\n')
-    # fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
-    # plt.close('all')
-
-    if args.plot:
-        print('Plotting results...')
-        data_fpaths = [
-            os.path.join(DATA_DIR, 'tri', 'tri.pickle'),    # plot is too busy when tri is included
-            os.path.join(DATA_DIR, 'sba', 'sba.pickle'),
-            os.path.join(DATA_DIR, 'ekf', 'ekf.pickle'),
-            os.path.join(DATA_DIR, 'fte', 'fte.pickle')
-        ]
-        app.plot_multiple_cheetah_reconstructions(data_fpaths, reprojections=False, dark_mode=True)

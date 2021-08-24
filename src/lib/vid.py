@@ -230,21 +230,21 @@ def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, dr
         filepath = glob(vname + '*.h5')[0]  # TODO: this variable should be an argument
         videooutname = filepath.replace('.h5', '.mp4')
 
-        # # for head_only
-        # df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
-        # df = df.drop(columns=["objectA"], level=1)
-        # df = df.reindex(columns=[
-        #     ('2019-03-09_lily_run',  'nose',          'x'),
-        #     ('2019-03-09_lily_run',  'nose',          'y'),
-        #     ('2019-03-09_lily_run',  'nose', 'likelihood'),
-        #     ('2019-03-09_lily_run', 'r_eye',          'x'),
-        #     ('2019-03-09_lily_run', 'r_eye',          'y'),
-        #     ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
-        #     ('2019-03-09_lily_run', 'l_eye',          'x'),
-        #     ('2019-03-09_lily_run', 'l_eye',          'y'),
-        #     ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
-        # ])
-        # df = df.rename(index=lambda s: int(s[-7:-4]))
+        # for head_only
+        if 'likelihood' not in point_df.columns.get_level_values('coords').unique():
+            df = point_df
+            index_names = df.columns.names
+            default_tuples = df.columns.to_flat_index()
+            tuples = []
+            for t in default_tuples:
+                tuples.append(t)
+                if t[-1] == 'y':
+                    t = tuple(list(t[:-1]) + ['likelihood'])
+                    tuples.append(t)
+            columns = pd.MultiIndex.from_tuples(tuples, names=index_names)
+            df = df.reindex(columns=columns)
+            df = df.rename(index=lambda s: int(s[-7:-4]))
+            point_df = df
 
         labeled_bpts = [bp for bp in point_df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
         clip = VideoProcessorCV(in_name=video, out_name=videooutname, codec=codec)

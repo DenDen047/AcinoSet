@@ -80,26 +80,40 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
     for i, path in enumerate(dlc_df_fpaths):
         df = pd.read_hdf(path)
 
-        if 'dlc_head' in dlc_df_fpaths[0]:
-            df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
-            df = df.drop(columns=["objectA"], level=1)
-            n_rows = len(df)
+        if 'likelihood' not in df.columns.get_level_values('coords').unique():
+            index_names = df.columns.names
+            default_tuples = df.columns.to_flat_index()
             func = lambda x: 1 if not np.isnan(x) else 0
-            df['2019-03-09_lily_run', 'nose', 'likelihood'] = df['2019-03-09_lily_run', 'nose', 'x'].apply(func)
-            df['2019-03-09_lily_run', 'r_eye', 'likelihood'] = df['2019-03-09_lily_run', 'r_eye', 'x'].apply(func)
-            df['2019-03-09_lily_run', 'l_eye', 'likelihood'] = df['2019-03-09_lily_run', 'l_eye', 'x'].apply(func)
-            df = df.reindex(columns=[
-                ('2019-03-09_lily_run',  'nose',          'x'),
-                ('2019-03-09_lily_run',  'nose',          'y'),
-                ('2019-03-09_lily_run',  'nose', 'likelihood'),
-                ('2019-03-09_lily_run', 'r_eye',          'x'),
-                ('2019-03-09_lily_run', 'r_eye',          'y'),
-                ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
-                ('2019-03-09_lily_run', 'l_eye',          'x'),
-                ('2019-03-09_lily_run', 'l_eye',          'y'),
-                ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
-            ])
+            tuples = []
+            for t in default_tuples:
+                tuples.append(t)
+                if t[-1] == 'y':
+                    _t = tuple(list(t[:-1]) + ['likelihood'])
+                    df.loc[_t] = df.loc[t].apply(func)
+                    tuples.append(t)
+            columns = pd.MultiIndex.from_tuples(tuples, names=index_names)
+            df = df.reindex(columns=columns)
             df = df.rename(index=lambda s: int(s[-7:-4]))
+        # if 'dlc_head' in dlc_df_fpaths[0]:
+        #     df = df.rename(columns={"bodypart1": "r_eye", "bodypart2": "l_eye", "bodypart3": "nose"}, level=1)
+        #     df = df.drop(columns=["objectA"], level=1)
+        #     n_rows = len(df)
+        #     func = lambda x: 1 if not np.isnan(x) else 0
+        #     df['2019-03-09_lily_run', 'nose', 'likelihood'] = df['2019-03-09_lily_run', 'nose', 'x'].apply(func)
+        #     df['2019-03-09_lily_run', 'r_eye', 'likelihood'] = df['2019-03-09_lily_run', 'r_eye', 'x'].apply(func)
+        #     df['2019-03-09_lily_run', 'l_eye', 'likelihood'] = df['2019-03-09_lily_run', 'l_eye', 'x'].apply(func)
+        #     df = df.reindex(columns=[
+        #         ('2019-03-09_lily_run',  'nose',          'x'),
+        #         ('2019-03-09_lily_run',  'nose',          'y'),
+        #         ('2019-03-09_lily_run',  'nose', 'likelihood'),
+        #         ('2019-03-09_lily_run', 'r_eye',          'x'),
+        #         ('2019-03-09_lily_run', 'r_eye',          'y'),
+        #         ('2019-03-09_lily_run', 'r_eye', 'likelihood'),
+        #         ('2019-03-09_lily_run', 'l_eye',          'x'),
+        #         ('2019-03-09_lily_run', 'l_eye',          'y'),
+        #         ('2019-03-09_lily_run', 'l_eye', 'likelihood'),
+        #     ])
+        #     df = df.rename(index=lambda s: int(s[-7:-4]))
 
         dlc_df = df
         dlc_df = dlc_df.droplevel([0], axis=1).swaplevel(0,1,axis=1).T.unstack().T.reset_index().rename({'level_0':'frame'}, axis=1)
