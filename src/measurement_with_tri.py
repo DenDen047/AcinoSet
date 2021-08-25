@@ -22,6 +22,8 @@ from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from lib.misc import get_markers, rot_x, rot_y, rot_z
 
+import core
+
 
 sns.set_theme()     # apply the default theme
 plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
@@ -171,26 +173,6 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     return out_fpath
 
 
-def dlc(DATA_DIR, OUT_DIR, dlc_thresh, params: Dict = {}) -> Dict:
-    df_fpaths = sorted(glob(os.path.join(OUT_DIR, 'cam[1-9]*.h5'))) # original vids should be in the parent dir
-    video_fpaths = sorted(glob(os.path.join(DATA_DIR, 'cam[1-9].mp4'))) # original vids should be in the parent dir
-
-    # save parameters
-    params['dlc_thresh'] = dlc_thresh
-    with open(os.path.join(OUT_DIR, 'video_params.json'), 'w') as f:
-        json.dump(params, f)
-
-    # load dataframes
-    point2d_dfs = []
-    for df_fpath in df_fpaths:
-        df = pd.read_hdf(df_fpath)
-        point2d_dfs.append(df)
-
-    app.create_labeled_videos(point2d_dfs, video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh, lure=False)
-
-    return params
-
-
 # ========= MAIN ========
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
@@ -221,7 +203,7 @@ if __name__ == '__main__':
     DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     print('========== DLC ==========\n')
-    _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
