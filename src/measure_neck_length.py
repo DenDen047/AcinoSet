@@ -154,8 +154,8 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     print('---------- Neck Length ----------')
     print(pd.DataFrame(pd.Series(neck_lengths).describe()).transpose())
     indices = np.argsort(neck_lengths)
-    print('min: {} ({})'.format(neck_lengths[indices[0]], frames[indices[0]]))
-    print('max: {} ({})'.format(neck_lengths[indices[-1]], frames[indices[-1]]))
+    print('min: {} (frame={})'.format(neck_lengths[indices[0]], frames[indices[0]]))
+    print('max: {} (frame={})'.format(neck_lengths[indices[-1]], frames[indices[-1]]))
     print('')
 
     # ========= SAVE TRIANGULATION RESULTS ========
@@ -166,7 +166,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=False)
+    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=True)
 
     return out_fpath
 
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc_manual')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     print('========== DLC ==========\n')
     _ = dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
@@ -240,7 +240,7 @@ if __name__ == '__main__':
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         target_markers = misc.get_markers(mode)
-        key_markers = ['nose', 'r_eye', 'l_eye', 'neck_base']
+        key_markers = ['nose', 'r_eye', 'l_eye']
 
         def frame_condition(i: int, n_markers: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
