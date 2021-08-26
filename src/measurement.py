@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import pickle
 import numpy as np
 import sympy as sp
 from scipy.spatial import distance
@@ -94,6 +95,13 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     markers = misc.get_markers(mode='all')
     k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
 
+    # get the camera positions
+    # for c in range(len(r_arr)):
+    #     R = r_arr[c].T
+    #     t = t_arr[c]
+    #     T = -R @ t
+    #     print(T)
+
     # save reconstruction parameters
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
@@ -115,17 +123,22 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     pix_errors = metric.residual_error(points_2d_df, points_3d_df, markers, camera_params)
     save_error_dists(pix_errors, OUT_DIR)
 
-    # calculate the neck length
-    neck_lengths = []
-    frames = []
-    points_df = points_3d_df.query('marker == "nose" | marker == "r_eye" | marker == "l_eye" | marker == "neck_base"')
-    for f in points_df['frame'].unique():
-        frame_df = points_df.query(f'frame == {f}')
-        if len(frame_df['marker'].unique()) == 4:
-            nose = frame_df.query('marker == "nose"')[['x', 'y', 'z']].to_numpy().flatten()
-            l_eye = frame_df.query('marker == "l_eye"')[['x', 'y', 'z']].to_numpy().flatten()
-            r_eye = frame_df.query('marker == "r_eye"')[['x', 'y', 'z']].to_numpy().flatten()
-            neck_base = frame_df.query('marker == "neck_base"')[['x', 'y', 'z']].to_numpy().flatten()
+    # measure the specific parameters
+    n_frame = max(points_3d_df['frame'].unique()) + 1
+    data = {
+        'head': [],
+        'spine': [],
+    }
+    for f in range(n_frame):
+        points_df = points_3d_df.query(f'frame == {f}')
+
+        # head position
+        head = []
+        head_df = points_df.query('marker == "nose" | marker == "r_eye" | marker == "l_eye"')
+        if len(head_df['marker'].unique()) == 3:
+            nose = head_df.query('marker == "nose"')[['x', 'y', 'z']].to_numpy().flatten()
+            l_eye = head_df.query('marker == "l_eye"')[['x', 'y', 'z']].to_numpy().flatten()
+            r_eye = head_df.query('marker == "r_eye"')[['x', 'y', 'z']].to_numpy().flatten()
             coe = np.mean([l_eye, r_eye], axis=0)
 
             # get the head position and pose with least square method
@@ -148,17 +161,24 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
                 fun=func,
                 x0=np.array([coe[0], coe[1], coe[2], 0, 0, 0])
             )
-            head = r.x[:3]
+            head_pos = r.x[:3]
+        else:
+            head_pos = [np.nan] * 3
+        data['head'].append(head_pos)
 
-            neck_length = np.linalg.norm(head - neck_base)
-            frames.append(f)
-            neck_lengths.append(neck_length)
-    print('---------- Neck Length ----------')
-    print(pd.DataFrame(pd.Series(neck_lengths).describe()).transpose())
-    indices = np.argsort(neck_lengths)
-    print('min: {} (frame={})'.format(neck_lengths[indices[0]], frames[indices[0]]))
-    print('max: {} (frame={})'.format(neck_lengths[indices[-1]], frames[indices[-1]]))
-    print('')
+        # spine position
+        spine_df = points_df.query('marker == "spine"')
+        data['spine'].append(
+            spine_df[['x', 'y', 'z']].to_numpy().flatten()
+            if len(spine_df['marker'].unique()) == 1
+            else [np.nan] * 3
+        )
+
+    for k, v in data.items():
+        data[k] = np.array(v)
+
+    fig_fpath = os.path.join(OUT_DIR, 'summary.pdf')
+    app.plot_key_positions(data, out_fpath=fig_fpath)
 
     # ========= SAVE TRIANGULATION RESULTS ========
     positions = np.full((end_frame - start_frame + 1, len(markers), 3), np.nan)
@@ -168,7 +188,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=True)
+    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=False)
 
     return out_fpath
 
@@ -202,8 +222,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, 'dlc')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -263,5 +283,41 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
+    print('========== FTE ==========\n')
+    pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
+    if not os.path.exists(pkl_fpath):
+        pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
+
+    # load pickle data
+    with open(pkl_fpath, 'rb') as f:
+        data = pickle.load(f)
+    positions_3d = data['positions']    # [n_frame, n_label, xyz]
+
+    # measure the specific parameters
+    labels = misc.get_markers(mode)
+    n_frame = positions_3d.shape[0]
+    data = {
+        'head': [],
+        'spine': [],
+    }
+    for f in range(n_frame):
+        labels_position = positions_3d[f, :, :]
+
+        # head position
+        l_eye = labels_position[labels.index('l_eye'), :]
+        r_eye = labels_position[labels.index('r_eye'), :]
+        head = np.mean([l_eye, r_eye], axis=0)
+        print(head)
+        data['head'].append(head)
+
+        # spine position
+        spine = labels_position[labels.index('spine'), :]
+        data['spine'].append(spine)
+
+    for k, v in data.items():
+        data[k] = np.array(v)
+
+    fig_fpath = os.path.join(DATA_DIR, 'fte', 'summary.pdf')
+    app.plot_key_positions(data, out_fpath=fig_fpath)
+
+

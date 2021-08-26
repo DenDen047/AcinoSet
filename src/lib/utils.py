@@ -307,9 +307,11 @@ def get_pairwise_3d_points_from_df(points_2d_df, k_arr, d_arr, r_arr, t_arr, tri
                 print(f'Found {intersection_df.shape[0]} pairwise points between camera {cam_a} and {cam_b}')
             cam_a_points = np.array(intersection_df[['x_a','y_a']], dtype=np.float).reshape((-1,1,2))
             cam_b_points = np.array(intersection_df[['x_b','y_b']], dtype=np.float).reshape((-1,1,2))
-            points_3d = triangulate_func(cam_a_points, cam_b_points,
-                                            k_arr[cam_a], d_arr[cam_a], r_arr[cam_a], t_arr[cam_a],
-                                            k_arr[cam_b], d_arr[cam_b], r_arr[cam_b], t_arr[cam_b])
+            points_3d = triangulate_func(
+                cam_a_points, cam_b_points,
+                k_arr[cam_a], d_arr[cam_a], r_arr[cam_a], t_arr[cam_a],
+                k_arr[cam_b], d_arr[cam_b], r_arr[cam_b], t_arr[cam_b]
+            )
             intersection_df['x'] = points_3d[:, 0]
             intersection_df['y'] = points_3d[:, 1]
             intersection_df['z'] = points_3d[:, 2]

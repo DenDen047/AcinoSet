@@ -1,9 +1,11 @@
 import os
 import sys
+import math
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
+from typing import Dict, List
 from cv2 import Rodrigues
 from matplotlib import collections  as mc
 from PyQt5 import QtGui, QtCore
@@ -421,3 +423,43 @@ def plot_shutter_delay(data, mplstyle_fpath=None):
     ax.set_title('Shutter Delay')
 
     return fig, ax
+
+
+def plot_positions(positions: List, titles: List[str], labels: List[str] = ['x', 'y', 'z'], mplstyle_fpath=None):
+    assert len(positions) == len(titles)
+
+    n_plot = len(titles)
+    lbl2idx = {
+        'x': 0,
+        'y': 1,
+        'z': 2,
+    }
+    column_indices = [lbl2idx[l] for l in labels]
+
+    if mplstyle_fpath is not None:
+        plt.style.use(mplstyle_fpath)
+
+    all_values = np.array(positions)[:, :, column_indices]
+    ymin = np.nanmin(all_values)
+    ymax = np.nanmax(all_values)
+
+    plt_shape = [math.ceil(len(titles)/2), 2]
+    fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
+
+    for i in range(plt_shape[0]):
+        for j in range(plt_shape[1]):
+            k = 2*i+j
+            ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
+
+            ax.set_title(titles[k])
+            x = positions[k]    # [n_frame, xyz]
+            ax.plot(x[:, column_indices])
+            ax.set_xlim(0, x.shape[0])
+            ax.set_ylim(ymin, ymax)
+            ax.legend(labels)
+
+            if len(titles) - 1 == k:
+                break
+
+    plt.show(block=False)
+    return fig, axs
