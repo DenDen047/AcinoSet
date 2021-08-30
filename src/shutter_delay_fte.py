@@ -576,7 +576,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     )
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=True, save_videos=True)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=True)
 
     # calculate residual error
     positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=False, mode=mode)
@@ -637,7 +637,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'upper_body'
+    mode = 'default'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
@@ -700,13 +700,13 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
         for i in range(max_idx):
-            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            # if frame_condition(i, len(target_markers)):
+            # if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
+            if frame_condition(i, len(target_markers)):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1):
-            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            # if frame_condition(i, len(target_markers)):
+            # if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
+            if frame_condition(i, len(target_markers)):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:

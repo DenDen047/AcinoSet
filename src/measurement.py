@@ -283,15 +283,16 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== FTE ==========\n')
     pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
     if not os.path.exists(pkl_fpath):
+        print('========== FTE ==========\n')
         pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
 
     # load pickle data
     with open(pkl_fpath, 'rb') as f:
         data = pickle.load(f)
-    positions_3d = data['positions']    # [n_frame, n_label, xyz]
+    positions_3d = np.array(data['positions'])    # [n_cam, n_frame, n_label, xyz]
+    positions_3d = positions_3d[0]  # cam1 is the base
 
     # measure the specific parameters
     labels = misc.get_markers(mode)
@@ -307,7 +308,6 @@ if __name__ == '__main__':
         l_eye = labels_position[labels.index('l_eye'), :]
         r_eye = labels_position[labels.index('r_eye'), :]
         head = np.mean([l_eye, r_eye], axis=0)
-        print(head)
         data['head'].append(head)
 
         # spine position
@@ -319,5 +319,3 @@ if __name__ == '__main__':
 
     fig_fpath = os.path.join(DATA_DIR, 'fte', 'summary.pdf')
     app.plot_key_positions(data, out_fpath=fig_fpath)
-
-
