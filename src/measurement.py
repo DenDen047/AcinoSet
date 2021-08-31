@@ -203,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'default'
+    mode = 'head_stabilize'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
@@ -242,37 +242,34 @@ if __name__ == '__main__':
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         target_markers = misc.get_markers(mode)
-        key_markers = ['nose', 'r_eye', 'l_eye']
 
-        def frame_condition(i: int, n_markers: int) -> bool:
+        def frame_condition(i: int, target_markers: List[str]) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
             num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
-            return num_marker(i) >= n_markers
+            return num_marker(i) >= len(target_markers)
 
-        def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int, n_markers: int) -> bool:
-            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
+        def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int) -> bool:
+            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in key_markers])
             markers = filtered_points_2d_df.query(
                 f'frame == {i} and ({markers_condition})'
             )['marker']
 
             values, counts = np.unique(markers, return_counts=True)
-            if len(values) != n_markers:
+            if len(values) != len(key_markers):
                 return False
-
-            counts = [counts[np.where(values==k)[0][0]] for k in key_markers]
 
             return min(counts) >= n_min_cam
 
         start_frame, end_frame = None, None
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
-        for i in range(max_idx):
-            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            # if frame_condition(i, len(target_markers)):
+        for i in range(max_idx):    # start_frame
+            if frame_condition_with_key_markers(i, target_markers, 2):
+            # if frame_condition(i, target_markers):
                 start_frame = i
                 break
-        for i in range(max_idx, 0, -1):
-            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            # if frame_condition(i, len(target_markers)):
+        for i in range(max_idx, 0, -1): # end_frame
+            if frame_condition_with_key_markers(i, target_markers, 2):
+            # if frame_condition(i, target_markers):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
@@ -300,6 +297,7 @@ if __name__ == '__main__':
     data = {
         'head': [],
         'spine': [],
+        'neck_base': [],
     }
     for f in range(n_frame):
         labels_position = positions_3d[f, :, :]
@@ -313,6 +311,10 @@ if __name__ == '__main__':
         # spine position
         spine = labels_position[labels.index('spine'), :]
         data['spine'].append(spine)
+
+        # neck_base position
+        neck_base = labels_position[labels.index('neck_base'), :]
+        data['neck_base'].append(neck_base)
 
     for k, v in data.items():
         data[k] = np.array(v)
