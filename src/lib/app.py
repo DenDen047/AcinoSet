@@ -192,13 +192,13 @@ def plot_shutter_delay(shutter_delay, out_fpath=None, mplstyle_fpath=None):
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')
 
-def plot_key_positions(positions_3d: Dict, out_fpath=None, mplstyle_fpath=None):
+def plot_key_values(data: Dict, out_fpath=None, mplstyle_fpath=None):
     titles = []
-    positions = []
-    for k, v in positions_3d.items():
-        titles.append(f'{k} positions')
-        positions.append(v)
-    fig, ax = plotting.plot_positions(positions, titles=titles, labels=['z'], mplstyle_fpath=mplstyle_fpath)
+    values = []
+    for k, v in data.items():
+        titles.append(k)
+        values.append(v)
+    fig, ax = plotting.plot_value_sets(values, titles=titles, mplstyle_fpath=mplstyle_fpath)
     if out_fpath is not None:
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')

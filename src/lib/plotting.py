@@ -425,21 +425,15 @@ def plot_shutter_delay(data, mplstyle_fpath=None):
     return fig, ax
 
 
-def plot_positions(positions: List, titles: List[str], labels: List[str] = ['x', 'y', 'z'], mplstyle_fpath=None):
-    assert len(positions) == len(titles)
+def plot_value_sets(values: List, titles: List[str], labels: List[str] = None, mplstyle_fpath=None):
+    assert len(values) == len(titles)
 
     n_plot = len(titles)
-    lbl2idx = {
-        'x': 0,
-        'y': 1,
-        'z': 2,
-    }
-    column_indices = [lbl2idx[l] for l in labels]
 
     if mplstyle_fpath is not None:
         plt.style.use(mplstyle_fpath)
 
-    all_values = np.array(positions)[:, :, column_indices]
+    all_values = np.array(values)
     ymin = np.nanmin(all_values)
     ymax = np.nanmax(all_values)
 
@@ -452,11 +446,12 @@ def plot_positions(positions: List, titles: List[str], labels: List[str] = ['x',
             ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
 
             ax.set_title(titles[k])
-            x = positions[k]    # [n_frame, xyz]
-            ax.plot(x[:, column_indices])
+            x = all_values[k, :]    # [n_frame, v]
+            ax.plot(x)
             ax.set_xlim(0, x.shape[0])
             ax.set_ylim(ymin, ymax)
-            ax.legend(labels)
+            if labels is not None:
+                ax.legend(labels)
 
             if len(titles) - 1 == k:
                 break

@@ -280,6 +280,9 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
+    print('start frame:', start_frame)
+    print('end frame:', end_frame)
+
     pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
     if not os.path.exists(pkl_fpath):
         print('========== FTE ==========\n')
@@ -295,9 +298,10 @@ if __name__ == '__main__':
     labels = misc.get_markers(mode)
     n_frame = positions_3d.shape[0]
     data = {
-        'head': [],
-        'spine': [],
-        'neck_base': [],
+        'head z': [],
+        'spine z': [],
+        'neck_base z': [],
+        'neck_length': [],
     }
     for f in range(n_frame):
         labels_position = positions_3d[f, :, :]
@@ -306,18 +310,22 @@ if __name__ == '__main__':
         l_eye = labels_position[labels.index('l_eye'), :]
         r_eye = labels_position[labels.index('r_eye'), :]
         head = np.mean([l_eye, r_eye], axis=0)
-        data['head'].append(head)
+        data['head z'].append(head[2])
 
         # spine position
         spine = labels_position[labels.index('spine'), :]
-        data['spine'].append(spine)
+        data['spine z'].append(spine[2])
 
         # neck_base position
         neck_base = labels_position[labels.index('neck_base'), :]
-        data['neck_base'].append(neck_base)
+        data['neck_base z'].append(neck_base[2])
+
+        # neck length
+        neck_length = np.linalg.norm(head - neck_base)
+        data['neck_length'].append(neck_length)
 
     for k, v in data.items():
         data[k] = np.array(v)
 
     fig_fpath = os.path.join(DATA_DIR, 'fte', 'summary.pdf')
-    app.plot_key_positions(data, out_fpath=fig_fpath)
+    app.plot_key_values(data, out_fpath=fig_fpath)

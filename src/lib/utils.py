@@ -213,7 +213,7 @@ def save_optimised_cheetah(positions, out_fpath, extra_data=None, for_matlab=Tru
         pickle.dump(file_data, f)
     print('Saved', out_fpath)
 
-    if for_matlab:
+    if for_matlab:  # TODO: add label info
         out_fpath = os.path.splitext(out_fpath)[0] + '.mat'
         savemat(out_fpath, file_data)
         print('Saved', out_fpath)
