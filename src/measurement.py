@@ -292,10 +292,12 @@ if __name__ == '__main__':
     with open(pkl_fpath, 'rb') as f:
         data = pickle.load(f)
     positions_3d = np.array(data['positions'])    # [n_cam, n_frame, n_label, xyz]
+    states = np.array(data['x'])    # [n_frame, n_states]
     positions_3d = positions_3d[0]  # cam1 is the base
 
     # measure the specific parameters
     labels = misc.get_markers(mode)
+    pose_labels = misc.get_pose_params(mode)
     n_frame = positions_3d.shape[0]
     data = {
         'head z': [],
@@ -321,7 +323,7 @@ if __name__ == '__main__':
         data['neck_base z'].append(neck_base[2])
 
         # neck length
-        neck_length = np.linalg.norm(head - neck_base)
+        neck_length = abs(states[f, pose_labels['l_1']])
         data['neck_length'].append(neck_length)
 
     for k, v in data.items():

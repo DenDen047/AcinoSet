@@ -158,7 +158,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         'phi_0': 13,
         'theta_0': 9,
         'psi_0': 26,
-        'l_1': 32,
+        'l_1': 4,
         'phi_1': 32,
         'theta_1': 18,
         'psi_1': 12,
@@ -367,6 +367,9 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def head_theta_0(m, n):
         return abs(m.x[n,idx['theta_0']]) <= np.pi / 6
     # neck
+    def neck_l_1(m, n):
+        # return (0.2, m.x[n,idx['l_1']], 0.3)
+        return m.x[n,idx['l_1']] == 0.28
     def neck_phi_1(m, n):
         return abs(m.x[n,idx['phi_1']]) <= np.pi / 6
     def neck_theta_1(m, n):
@@ -418,6 +421,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
     if 'theta_0' in markers:
         m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
+    if 'l_1' in markers:
+        m.neck_length = pyo.Constraint(m.N, rule=neck_l_1)
     if 'phi_1' in markers:
         m.neck_phi_1           = pyo.Constraint(m.N, rule=neck_phi_1)
     if 'theta_1' in markers:
