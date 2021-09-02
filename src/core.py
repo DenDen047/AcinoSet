@@ -263,7 +263,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     m.meas_err_weight  = pyo.Param(m.N, m.C, m.L, initialize=init_meas_weights, mutable=True)
     m.model_err_weight = pyo.Param(m.P, initialize=init_model_weights)
-    m.meas             = pyo.Param(m.N, m.C, m.L, m.D2, initialize=init_measurements_df)
+    m.meas = pyo.Param(m.N, m.C, m.L, m.D2, initialize=init_measurements_df)
 
     # ===== MODEL VARIABLES =====
     m.x           = pyo.Var(m.N, m.P) # position

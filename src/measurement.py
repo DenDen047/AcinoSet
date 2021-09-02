@@ -283,10 +283,10 @@ if __name__ == '__main__':
     print('start frame:', start_frame)
     print('end frame:', end_frame)
 
-    pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
-    if not os.path.exists(pkl_fpath):
-        print('========== FTE ==========\n')
-        pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
+    # pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
+    # if not os.path.exists(pkl_fpath):
+    print('========== FTE ==========\n')
+    pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
 
     # load pickle data
     with open(pkl_fpath, 'rb') as f:
@@ -323,7 +323,10 @@ if __name__ == '__main__':
         data['neck_base z'].append(neck_base[2])
 
         # neck length
-        neck_length = abs(states[f, pose_labels['l_1']])
+        # if 'l_1' in pose_labels:
+        #     neck_length = abs(states[f, pose_labels['l_1']])
+        # else:
+        neck_length = np.linalg.norm(head - neck_base)
         data['neck_length'].append(neck_length)
 
     for k, v in data.items():

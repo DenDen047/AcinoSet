@@ -357,7 +357,9 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
 
     _titles = [
         'Lure positions',
-        'Head positions', 'Head angles', 'Neck angles',
+        'Head positions', 'Head angles',
+        'Neck length',
+        'Neck angles',
         'Front torso angle', 'Back torso angles',
         'Tail base angles', 'Tail mid angles',
         'Left shoulder angle', 'Left front knee angle',
@@ -368,7 +370,9 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
     _label_lists = [
         ['x_l', 'y_l', 'z_l'], # exclude lure for now
         ['x_0', 'y_0', 'z_0'],
-        ['phi_0', 'theta_0', 'psi_0'], ['phi_1', 'theta_1', 'psi_1'],
+        ['phi_0', 'theta_0', 'psi_0'],
+        ['l_1'],
+        ['phi_1', 'theta_1', 'psi_1'],
         ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
         ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
         ['theta_6'], ['theta_7'],
@@ -434,8 +438,8 @@ def plot_value_sets(values: List, titles: List[str], labels: List[str] = None, m
         plt.style.use(mplstyle_fpath)
 
     all_values = np.array(values)
-    ymin = np.nanmin(all_values)
-    ymax = np.nanmax(all_values)
+    ymin = np.nanmin(all_values) - 0.01
+    ymax = np.nanmax(all_values) + 0.01
 
     plt_shape = [math.ceil(len(titles)/2), 2]
     fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
