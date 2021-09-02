@@ -482,7 +482,6 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     # ===== INTEGRATION CONSTRAINTS =====
     print('- Numerical integration')
-    l_idx = [i for k, i in idx.items() if k[:2] == 'l_']
 
     def backwards_euler_pos(m,n,p):
         if n > 1:
@@ -498,10 +497,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     def constant_acc(m, n, p):
         if n > 1:
-            if p in l_idx:
-                return (None, m.ddx[n,p], None)
-            else:
-                return m.ddx[n,p] == m.ddx[n-1,p] + m.slack_model[n,p]
+            return m.ddx[n,p] == m.ddx[n-1,p] + m.slack_model[n,p]
         else:
             return pyo.Constraint.Skip
 
