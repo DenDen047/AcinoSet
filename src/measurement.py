@@ -200,10 +200,11 @@ if __name__ == '__main__':
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
+    parser.add_argument('--force', action='store_true', help='forcibly run the FTE.')
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'head_stabilize'
+    mode = 'default'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
@@ -263,13 +264,13 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
         for i in range(max_idx):    # start_frame
-            if frame_condition_with_key_markers(i, target_markers, 2):
-            # if frame_condition(i, target_markers):
+            # if frame_condition_with_key_markers(i, target_markers, 2):
+            if frame_condition(i, target_markers):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1): # end_frame
-            if frame_condition_with_key_markers(i, target_markers, 2):
-            # if frame_condition(i, target_markers):
+            # if frame_condition_with_key_markers(i, target_markers, 2):
+            if frame_condition(i, target_markers):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
@@ -283,10 +284,10 @@ if __name__ == '__main__':
     print('start frame:', start_frame)
     print('end frame:', end_frame)
 
-    # pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
-    # if not os.path.exists(pkl_fpath):
-    print('========== FTE ==========\n')
-    pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
+    pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
+    if args.force or not os.path.exists(pkl_fpath):
+        print('========== FTE ==========\n')
+        pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
 
     # load pickle data
     with open(pkl_fpath, 'rb') as f:
@@ -323,10 +324,10 @@ if __name__ == '__main__':
         data['neck_base z'].append(neck_base[2])
 
         # neck length
-        # if 'l_1' in pose_labels:
-        #     neck_length = abs(states[f, pose_labels['l_1']])
-        # else:
-        neck_length = np.linalg.norm(head - neck_base)
+        if 'l_1' in pose_labels:
+            neck_length = abs(states[f, pose_labels['l_1']])
+        else:
+            neck_length = np.linalg.norm(head - neck_base)
         data['neck_length'].append(neck_length)
 
     for k, v in data.items():
