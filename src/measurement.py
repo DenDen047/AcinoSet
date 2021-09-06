@@ -288,7 +288,7 @@ if __name__ == '__main__':
     if args.force or not os.path.exists(pkl_fpath):
         print('========== FTE ==========\n')
         for sd, sd_mode, intermode in [
-            # (False, 'const', 'pos'),
+            (False, 'const', 'pos'),
             (True, 'const', 'vel'),
             (True, 'const', 'acc'),
             (True, 'variable', 'vel'),
