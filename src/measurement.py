@@ -287,62 +287,74 @@ if __name__ == '__main__':
     pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
     if args.force or not os.path.exists(pkl_fpath):
         print('========== FTE ==========\n')
-        pkl_fpath = core.fte(
-            DATA_DIR,
-            points_2d_df, mode, camera_params,
-            start_frame, end_frame,
-            args.dlc_thresh,
-            scene_fpath,
-            params=vid_params,
-            shutter_delay=False,
-            shutter_delay_mode='const', # const/variable
-            interpolation_mode='pos',   # pos/vel/acc
-            plot=args.plot
-        )
+        for sd, sd_mode, intermode in [
+            # (False, 'const', 'pos'),
+            (True, 'const', 'vel'),
+            (True, 'const', 'acc'),
+            (True, 'variable', 'vel'),
+            (True, 'variable', 'acc'),
+        ]:
+            # output dir
+            dir_name = 'fte_baseline' if not sd else f'fte_sd_{sd_mode}_{intermode}'
+            OUT_DIR = os.path.join(DATA_DIR, dir_name)
+            print(f'================ {OUT_DIR} ================')
+            # run fte
+            pkl_fpath = core.fte(
+                OUT_DIR,
+                points_2d_df, mode, camera_params,
+                start_frame, end_frame,
+                args.dlc_thresh,
+                scene_fpath,
+                params=vid_params,
+                shutter_delay=sd,        # True/False
+                shutter_delay_mode=sd_mode, # const/variable
+                interpolation_mode=intermode,   # pos/vel/acc
+                plot=args.plot
+            )
 
-    # load pickle data
-    with open(pkl_fpath, 'rb') as f:
-        data = pickle.load(f)
-    positions_3d = np.array(data['positions'])    # [n_cam, n_frame, n_label, xyz]
-    states = np.array(data['x'])    # [n_frame, n_states]
-    positions_3d = positions_3d[0]  # cam1 is the base
+    # # load pickle data
+    # with open(pkl_fpath, 'rb') as f:
+    #     data = pickle.load(f)
+    # positions_3d = np.array(data['positions'])    # [n_cam, n_frame, n_label, xyz]
+    # states = np.array(data['x'])    # [n_frame, n_states]
+    # positions_3d = positions_3d[0]  # cam1 is the base
 
-    # measure the specific parameters
-    labels = misc.get_markers(mode)
-    pose_labels = misc.get_pose_params(mode)
-    n_frame = positions_3d.shape[0]
-    data = {
-        'head z': [],
-        'spine z': [],
-        'neck_base z': [],
-        'neck_length': [],
-    }
-    for f in range(n_frame):
-        labels_position = positions_3d[f, :, :]
+    # # measure the specific parameters
+    # labels = misc.get_markers(mode)
+    # pose_labels = misc.get_pose_params(mode)
+    # n_frame = positions_3d.shape[0]
+    # data = {
+    #     'head z': [],
+    #     'spine z': [],
+    #     'neck_base z': [],
+    #     'neck_length': [],
+    # }
+    # for f in range(n_frame):
+    #     labels_position = positions_3d[f, :, :]
 
-        # head position
-        l_eye = labels_position[labels.index('l_eye'), :]
-        r_eye = labels_position[labels.index('r_eye'), :]
-        head = np.mean([l_eye, r_eye], axis=0)
-        data['head z'].append(head[2])
+    #     # head position
+    #     l_eye = labels_position[labels.index('l_eye'), :]
+    #     r_eye = labels_position[labels.index('r_eye'), :]
+    #     head = np.mean([l_eye, r_eye], axis=0)
+    #     data['head z'].append(head[2])
 
-        # spine position
-        spine = labels_position[labels.index('spine'), :]
-        data['spine z'].append(spine[2])
+    #     # spine position
+    #     spine = labels_position[labels.index('spine'), :]
+    #     data['spine z'].append(spine[2])
 
-        # neck_base position
-        neck_base = labels_position[labels.index('neck_base'), :]
-        data['neck_base z'].append(neck_base[2])
+    #     # neck_base position
+    #     neck_base = labels_position[labels.index('neck_base'), :]
+    #     data['neck_base z'].append(neck_base[2])
 
-        # neck length
-        if 'l_1' in pose_labels:
-            neck_length = abs(states[f, pose_labels['l_1']])
-        else:
-            neck_length = np.linalg.norm(head - neck_base)
-        data['neck_length'].append(neck_length)
+    #     # neck length
+    #     if 'l_1' in pose_labels:
+    #         neck_length = abs(states[f, pose_labels['l_1']])
+    #     else:
+    #         neck_length = np.linalg.norm(head - neck_base)
+    #     data['neck_length'].append(neck_length)
 
-    for k, v in data.items():
-        data[k] = np.array(v)
+    # for k, v in data.items():
+    #     data[k] = np.array(v)
 
-    fig_fpath = os.path.join(DATA_DIR, 'fte', 'summary.pdf')
-    app.plot_key_values(data, out_fpath=fig_fpath)
+    # fig_fpath = os.path.join(DATA_DIR, 'fte', 'summary.pdf')
+    # app.plot_key_values(data, out_fpath=fig_fpath)

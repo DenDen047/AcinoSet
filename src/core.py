@@ -83,7 +83,7 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
 
 
 def fte(
-    DATA_DIR,
+    OUT_DIR,
     points_2d_df,
     mode, camera_params,
     start_frame, end_frame, dlc_thresh,
@@ -94,6 +94,7 @@ def fte(
     plot: bool = False
 ) -> str:
     # === INITIAL VARIABLES ===
+    # options
     sd = shutter_delay
     sd_mode = shutter_delay_mode
     intermode = interpolation_mode
@@ -102,9 +103,7 @@ def fte(
         assert intermode == 'vel' or intermode == 'acc'
     else:
         assert intermode == 'pos'
-
     # dirs
-    OUT_DIR = os.path.join(DATA_DIR, 'fte')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'fte.log'))
     # cost function
@@ -501,16 +500,19 @@ def fte(
             x = m.poses[n,l,1]
             y = m.poses[n,l,2]
             z = m.poses[n,l,3]
-        elif sd and intermode=='vel':
-            tau = m.shutter_delay[n, c]
-            x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau
-            y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau
-            z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
-        elif sd and intermode=='acc':
-            tau = m.shutter_delay[n, c]
-            x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)/2
-            y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)/2
-            z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)/2
+        else:
+            if sd_mode == 'const':
+                tau = m.shutter_delay[c]
+            elif sd_mode == 'variable':
+                tau = m.shutter_delay[n, c]
+            if sd and intermode=='vel':
+                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau
+                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau
+                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
+            elif sd and intermode=='acc':
+                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)/2
+                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)/2
+                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)/2
 
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
@@ -595,7 +597,10 @@ def fte(
     if sd:
         print('----- Shutter Delay -----')
         for c in m.C:
-            result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
+            if sd_mode == 'const':
+                result = pd.DataFrame(pd.Series([m.shutter_delay[c].value for n in m.N]).describe()).transpose()
+            elif sd_mode == 'variable':
+                result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
             print(f'Camera {c}')
             print(result)
     x, dx, ddx = [], [], []
@@ -609,8 +614,12 @@ def fte(
         ddx=ddx,
     )
     if sd:
-        shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
-        sd_state = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
+        if sd_mode == 'const':
+            shutter_delay = [[m.shutter_delay[c].value for n in m.N] for c in m.C]
+            sd_state = [[m.shutter_delay[c].value for n in m.N] for c in m.C]
+        elif sd_mode == 'variable':
+            shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
+            sd_state = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
         states['shutter_delay'] = sd_state
 
     # save pkl/mat and video files
