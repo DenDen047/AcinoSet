@@ -82,10 +82,27 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     return np.mean(errors)
 
 
-def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, shutter_delay: bool = False, interpolation_mode: str = 'pos', video: bool = True, plot: bool = False) -> str:
+def fte(
+    DATA_DIR,
+    points_2d_df,
+    mode, camera_params,
+    start_frame, end_frame, dlc_thresh,
+    scene_fpath,
+    params: Dict = {},
+    shutter_delay: bool = False, shutter_delay_mode: str = 'const', interpolation_mode: str = 'pos',
+    video: bool = True,
+    plot: bool = False
+) -> str:
     # === INITIAL VARIABLES ===
     sd = shutter_delay
+    sd_mode = shutter_delay_mode
     intermode = interpolation_mode
+    if sd:
+        assert sd_mode == 'const' or sd_mode == 'variable'
+        assert intermode == 'vel' or intermode == 'acc'
+    else:
+        assert intermode == 'pos'
+
     # dirs
     OUT_DIR = os.path.join(DATA_DIR, 'fte')
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -248,7 +265,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         val    = points_2d_df[n_mask & l_mask & c_mask]
         return val['likelihood'].values[0]
 
-    def init_meas_weights(model, n, c, l):
+    def init_meas_weights(m, n, c, l):
         likelihood = get_likelihood_from_df(n + start_frame, c, l)
         if likelihood > dlc_thresh:
             return 1 / R
@@ -272,7 +289,11 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     m.poses       = pyo.Var(m.N, m.L, m.D3)
     m.slack_model = pyo.Var(m.N, m.P)
     m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0)
-    m.shutter_delay = pyo.Var(m.N, m.C, initialize=0.0)
+    if sd:
+        if sd_mode == 'const':
+            m.shutter_delay = pyo.Var(m.C, initialize=0.0)
+        elif sd_mode == 'variable':
+            m.shutter_delay = pyo.Var(m.N, m.C, initialize=0.0)
 
     # ========= LAMBDIFY SYMBOLIC FUNCTIONS ========
     func_map = {
@@ -339,16 +360,20 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     print('- Shutter delay')
 
     def shutter_base_constraint(m, n):
-        return m.shutter_delay[n, 1] == 0.0
+        if sd_mode == 'const':
+            return m.shutter_delay[1] == 0.0
+        elif sd_mode == 'variable':
+            return m.shutter_delay[n, 1] == 0.0
 
     def shutter_delay_constraint(m, n, c):
-        return (-m.Ts, m.shutter_delay[n, c], m.Ts)
+        if sd_mode == 'const':
+            return (-m.Ts, m.shutter_delay[c], m.Ts)
+        if sd_mode == 'variable':
+            return (-m.Ts, m.shutter_delay[n, c], m.Ts)
 
-    def disable_shutter_delay(m, n, c):
-        return m.shutter_delay[n, c] == 0.0
-
-    m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
-    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint if sd else disable_shutter_delay)
+    if sd:
+        m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
+        m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint)
 
     #===== POSE CONSTRAINTS =====
     print('- Pose')
@@ -472,10 +497,21 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         # l ... DLC label
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
-        tau = m.shutter_delay[n, c]
-        x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
-        y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
-        z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+        if intermode=='pos':
+            x = m.poses[n,l,1]
+            y = m.poses[n,l,2]
+            z = m.poses[n,l,3]
+        elif sd and intermode=='vel':
+            tau = m.shutter_delay[n, c]
+            x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau
+            y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau
+            z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
+        elif sd and intermode=='acc':
+            tau = m.shutter_delay[n, c]
+            x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
+            y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
+            z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
     m.measurement = pyo.Constraint(m.N, m.C, m.L, m.D2, rule=measurement_constraints)

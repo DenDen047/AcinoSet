@@ -287,7 +287,18 @@ if __name__ == '__main__':
     pkl_fpath = os.path.join(DATA_DIR, 'fte', 'fte.pickle')
     if args.force or not os.path.exists(pkl_fpath):
         print('========== FTE ==========\n')
-        pkl_fpath = core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='acc', plot=args.plot)
+        pkl_fpath = core.fte(
+            DATA_DIR,
+            points_2d_df, mode, camera_params,
+            start_frame, end_frame,
+            args.dlc_thresh,
+            scene_fpath,
+            params=vid_params,
+            shutter_delay=False,
+            shutter_delay_mode='const', # const/variable
+            interpolation_mode='pos',   # pos/vel/acc
+            plot=args.plot
+        )
 
     # load pickle data
     with open(pkl_fpath, 'rb') as f:
