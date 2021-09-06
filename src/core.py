@@ -508,9 +508,9 @@ def fte(
             z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
         elif sd and intermode=='acc':
             tau = m.shutter_delay[n, c]
-            x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
-            y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
-            z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+            x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)/2
+            y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)/2
+            z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)/2
 
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
@@ -592,23 +592,26 @@ def fte(
     app.stop_logging()
 
     # ========= SAVE FTE RESULTS ========
-    print('----- Shutter Delay -----')
-    for c in m.C:
-        result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
-        print(f'Camera {c}')
-        print(result)
+    if sd:
+        print('----- Shutter Delay -----')
+        for c in m.C:
+            result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
+            print(f'Camera {c}')
+            print(result)
     x, dx, ddx = [], [], []
     for n in m.N:
         x.append([m.x[n, p].value for p in m.P])
         dx.append([m.dx[n, p].value for p in m.P])
         ddx.append([m.ddx[n, p].value for p in m.P])
-    shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     states = dict(
         x=x,
         dx=dx,
         ddx=ddx,
-        shutter_delay=[[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     )
+    if sd:
+        shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
+        sd_state = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
+        states['shutter_delay'] = sd_state
 
     # save pkl/mat and video files
     out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=video)
@@ -636,8 +639,9 @@ def fte(
     # plot cheetah state
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
-    fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
-    app.plot_shutter_delay(shutter_delay, out_fpath=fig_fpath)
+    if sd:
+        fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
+        app.plot_shutter_delay(shutter_delay, out_fpath=fig_fpath)
 
     return out_fpath
 
