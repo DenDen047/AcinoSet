@@ -126,10 +126,10 @@ if __name__ == '__main__':
         print('========== FTE ==========\n')
         for sd, sd_mode, intermode in [
             (False, 'const', 'pos'),
-            # (True, 'const', 'vel'),
-            # (True, 'const', 'acc'),
-            # (True, 'variable', 'vel'),
-            # (True, 'variable', 'acc'),
+            (True, 'const', 'vel'),
+            (True, 'const', 'acc'),
+            (True, 'variable', 'vel'),
+            (True, 'variable', 'acc'),
         ]:
             # output dir
             dir_name = 'fte_baseline' if not sd else f'fte_sd_{sd_mode}_{intermode}'

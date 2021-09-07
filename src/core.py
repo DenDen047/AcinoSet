@@ -32,6 +32,17 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     for k, df in pix_errors.items():
         distances += df['camera_distance'].tolist()
 
+    # PCK (percentage correct keypoints)
+    ratio = 0.5
+    distances = []
+    pck_threshold = []
+    for k, df in pix_errors.items():
+        distances += df["pixel_residual"].tolist()
+        pck_threshold += df["pck_threshold"].tolist()
+    distances = np.asarray(list(map(float, distances)))
+    pck_threshold = np.asarray(list(map(float, pck_threshold)))
+    pck = 100.0 * (np.sum(distances <= (ratio * pck_threshold)) / len(distances))
+
     # plot the error histogram
     xlabel = 'error (pix)'
     ylabel = 'freq'
@@ -39,7 +50,7 @@ def save_error_dists(pix_errors, output_dir: str) -> float:
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     ax.hist(errors)
-    ax.set_title('Overall pixel errors (N={}, median={:.3f})'.format(len(errors), np.median(errors)))
+    ax.set_title('Overall pixel errors (N={}, median={:.3f}, PCK={:.2f})'.format(len(errors), np.median(errors), pck))
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     fig.savefig(os.path.join(output_dir, "overall_error_hist.pdf"))
@@ -166,7 +177,7 @@ def fte(
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 3   # measurement standard deviation (default: 5)
+    R = 5   # measurement standard deviation (default: 5)
     _Q = {  # model parameters variance
         'x_0': 4,
         'y_0': 7,
