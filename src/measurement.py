@@ -27,7 +27,7 @@ import core
 
 
 sns.set_theme()     # apply the default theme
-plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
+plt.style.use(os.path.join('/configs', 'mechatronics_style.yaml'))
 
 
 def save_error_dists(pix_errors, output_dir: str) -> float:
@@ -289,10 +289,10 @@ if __name__ == '__main__':
         print('========== FTE ==========\n')
         for sd, sd_mode, intermode in [
             (False, 'const', 'pos'),
-            (True, 'const', 'vel'),
-            (True, 'const', 'acc'),
-            (True, 'variable', 'vel'),
-            (True, 'variable', 'acc'),
+            # (True, 'const', 'vel'),
+            # (True, 'const', 'acc'),
+            # (True, 'variable', 'vel'),
+            # (True, 'variable', 'acc'),
         ]:
             # output dir
             dir_name = 'fte_baseline' if not sd else f'fte_sd_{sd_mode}_{intermode}'
@@ -309,6 +309,7 @@ if __name__ == '__main__':
                 shutter_delay=sd,        # True/False
                 shutter_delay_mode=sd_mode, # const/variable
                 interpolation_mode=intermode,   # pos/vel/acc
+                video=False,
                 plot=args.plot
             )
 
