@@ -58,10 +58,10 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc_head')
+    DLC_DIR = os.path.join(DATA_DIR, 'dlc_manual')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    print('========== DLC ==========\n')
+    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -128,8 +128,8 @@ if __name__ == '__main__':
             (False, 'const', 'pos'),
             (True, 'const', 'vel'),
             (True, 'const', 'acc'),
-            (True, 'variable', 'vel'),
-            (True, 'variable', 'acc'),
+            # (True, 'variable', 'vel'),
+            # (True, 'variable', 'acc'),
         ]:
             # output dir
             dir_name = 'fte_baseline' if not sd else f'fte_sd_{sd_mode}_{intermode}'
@@ -146,7 +146,7 @@ if __name__ == '__main__':
                 shutter_delay=sd,        # True/False
                 shutter_delay_mode=sd_mode, # const/variable
                 interpolation_mode=intermode,   # pos/vel/acc
-                video=False,
+                video=True,
                 plot=args.plot
             )
 
