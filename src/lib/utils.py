@@ -10,6 +10,7 @@ from typing import Tuple, List
 from nptyping import Array
 from scipy.io import savemat
 from datetime import datetime
+from pprint import pprint
 
 
 # ========== LOAD FUNCTIONS ==========
@@ -297,6 +298,8 @@ def find_scene_file(dir_path, scene_fname=None, verbose=True):
         scene_files = sorted([scene_file for scene_file in glob(scene_fpath) if ('before_corrections' not in scene_file) or (scene_file == scene_fpath)])
 
         if scene_files:
+            print('----- extrinsic_calib -----')
+            pprint(scene_files)
             k_arr, d_arr, r_arr, t_arr, cam_res = load_scene(scene_files[-1], verbose)
             scene_fname = os.path.basename(scene_files[-1])
             n_cams = int(scene_fname[0]) # assuming scene_fname is of the form '[1-9]_cam_scene*'

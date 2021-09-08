@@ -177,7 +177,7 @@ def fte(
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode)
-    R = 5   # measurement standard deviation (default: 5)
+    R = 3   # measurement standard deviation (default: 5)
     _Q = {  # model parameters variance
         'x_0': 4,
         'y_0': 7,
