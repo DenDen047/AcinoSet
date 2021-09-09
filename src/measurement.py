@@ -60,8 +60,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, 'dlc_manual')
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -146,53 +146,6 @@ if __name__ == '__main__':
                 shutter_delay=sd,        # True/False
                 shutter_delay_mode=sd_mode, # const/variable
                 interpolation_mode=intermode,   # pos/vel/acc
-                video=True,
+                video=False,
                 plot=args.plot
             )
-
-    # # load pickle data
-    # with open(pkl_fpath, 'rb') as f:
-    #     data = pickle.load(f)
-    # positions_3d = np.array(data['positions'])    # [n_cam, n_frame, n_label, xyz]
-    # states = np.array(data['x'])    # [n_frame, n_states]
-    # positions_3d = positions_3d[0]  # cam1 is the base
-
-    # # measure the specific parameters
-    # labels = misc.get_markers(mode)
-    # pose_labels = misc.get_pose_params(mode)
-    # n_frame = positions_3d.shape[0]
-    # data = {
-    #     'head z': [],
-    #     'spine z': [],
-    #     'neck_base z': [],
-    #     'neck_length': [],
-    # }
-    # for f in range(n_frame):
-    #     labels_position = positions_3d[f, :, :]
-
-    #     # head position
-    #     l_eye = labels_position[labels.index('l_eye'), :]
-    #     r_eye = labels_position[labels.index('r_eye'), :]
-    #     head = np.mean([l_eye, r_eye], axis=0)
-    #     data['head z'].append(head[2])
-
-    #     # spine position
-    #     spine = labels_position[labels.index('spine'), :]
-    #     data['spine z'].append(spine[2])
-
-    #     # neck_base position
-    #     neck_base = labels_position[labels.index('neck_base'), :]
-    #     data['neck_base z'].append(neck_base[2])
-
-    #     # neck length
-    #     if 'l_1' in pose_labels:
-    #         neck_length = abs(states[f, pose_labels['l_1']])
-    #     else:
-    #         neck_length = np.linalg.norm(head - neck_base)
-    #     data['neck_length'].append(neck_length)
-
-    # for k, v in data.items():
-    #     data[k] = np.array(v)
-
-    # fig_fpath = os.path.join(DATA_DIR, 'fte', 'summary.pdf')
-    # app.plot_key_values(data, out_fpath=fig_fpath)
