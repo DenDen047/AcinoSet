@@ -112,26 +112,29 @@ if __name__ == '__main__':
     margin = 0.2  # 0 <margin< 1
     total_width = 1 - margin
     # plot bar and error bar
+    xs = []
+    ys = []
+    zs = []
     for idx, (k, m) in enumerate(zip(keys, methods)):
         sp = np.array(plot_data[f'{k}_x'])  # speed
         err = np.array(plot_data[f'{k}_y'])
-        xs = list(x - total_width * (1 - (2*idx+1)/len(keys)) / 2)
-        ys = []
-        y_minerrs = []
-        y_maxerrs = []
         for i in range(len(bin_edges) - 1):
             j = i + 1
-            y_data = err[(bin_edges[i] <= sp) & (sp < bin_edges[j])]
-            ys.append(np.median(y_data) if len(y_data) > 0 else 0)
-            y_minerrs.append(min(y_data) if len(y_data) > 0 else 0)
-            y_maxerrs.append(max(y_data) if len(y_data) > 0 else 0)
-        ax.bar(
-            xs, ys,
-            yerr=[y_minerrs, y_maxerrs],
-            width=total_width / len(keys),
-            label='{}'.format(m)
-        )
-    plt.xticks(x, xlabels)
+            y_data = list(err[(bin_edges[i] <= sp) & (sp < bin_edges[j])])
+            xs += ['${:.1f} - {:.1f}$'.format(bin_edges[i], bin_edges[j])] * len(y_data)
+            ys += y_data
+            zs += [m] * len(y_data)
+    df = pd.DataFrame({
+        'range': xs,
+        'error': ys,
+        'method': zs,
+    })
+    sns.violinplot(
+        x='range', y='error', data=df, hue='method',
+        dodge=True,
+        jitter=True,
+        ax=ax
+    )
     ax.legend()
     # ax.set_title('Speed vs Reprojection Pixel Errors')
     ax.set_xlabel('Speed $s_{head}$')
