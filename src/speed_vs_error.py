@@ -129,10 +129,9 @@ if __name__ == '__main__':
         'error': ys,
         'method': zs,
     })
-    sns.violinplot(
+    sns.boxplot(
         x='range', y='error', data=df, hue='method',
-        dodge=True,
-        jitter=True,
+        fliersize=1,
         ax=ax
     )
     ax.legend()
