@@ -102,13 +102,13 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
         for i in range(max_idx):    # start_frame
-            if frame_condition_with_key_markers(i, target_markers, 2):
-            # if frame_condition(i, target_markers):
+            # if frame_condition_with_key_markers(i, target_markers, 2):
+            if frame_condition(i, target_markers):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1): # end_frame
-            if frame_condition_with_key_markers(i, target_markers, 2):
-            # if frame_condition(i, target_markers):
+            # if frame_condition_with_key_markers(i, target_markers, 2):
+            if frame_condition(i, target_markers):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:

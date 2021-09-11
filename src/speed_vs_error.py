@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     data_fpahts = [
         '/data/2017_08_29/top/phantom/run1_1/',
-        '/data/2017_12_21/top/lily/run1/',
+        # '/data/2017_12_21/top/lily/run1/',
         '/data/2019_03_05/lily/run/',
         '/data/2019_03_09/lily/run/',
     ]
