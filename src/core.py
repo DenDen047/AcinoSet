@@ -605,15 +605,6 @@ def fte(
     app.stop_logging()
 
     # ========= SAVE FTE RESULTS ========
-    if sd:
-        print('----- Shutter Delay -----')
-        for c in m.C:
-            if sd_mode == 'const':
-                result = pd.DataFrame(pd.Series([m.shutter_delay[c].value for n in m.N]).describe()).transpose()
-            elif sd_mode == 'variable':
-                result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
-            print(f'Camera {c}')
-            print(result)
     x, dx, ddx = [], [], []
     for n in m.N:
         x.append([m.x[n, p].value for p in m.P])
@@ -626,18 +617,13 @@ def fte(
     )
     if sd:
         if sd_mode == 'const':
-            shutter_delay = [[m.shutter_delay[c].value for n in m.N] for c in m.C]
             sd_state = [[m.shutter_delay[c].value for n in m.N] for c in m.C]
         elif sd_mode == 'variable':
-            shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
             sd_state = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
         states['shutter_delay'] = sd_state
 
-    # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=video)
-
     # calculate residual error
-    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=False, mode=mode)
+    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=False, mode=mode, intermode=intermode)
     points_3d_dfs = []
     for positions_3d in positions_3ds:
         frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
@@ -654,14 +640,18 @@ def fte(
         ).astype({'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'})
         points_3d_dfs.append(points_3d_df)
     pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
+    states['reprj_errors'] = pix_errors
     save_error_dists(pix_errors, OUT_DIR)
+
+    # save pkl/mat and video files
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
     if sd:
         fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
-        app.plot_shutter_delay(shutter_delay, out_fpath=fig_fpath)
+        app.plot_shutter_delay(sd_state, out_fpath=fig_fpath)
 
     return out_fpath
 
