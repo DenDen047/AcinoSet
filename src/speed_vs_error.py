@@ -37,11 +37,6 @@ rc('text', usetex=True)
 # ========= MAIN ========
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
-    parser.add_argument('--data_dir', type=str, help='The file path to the flick/run to be optimized.')
-    parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
-    parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
-    parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
-    parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
     mode = 'head'

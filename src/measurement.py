@@ -34,6 +34,7 @@ plt.style.use(os.path.join('/configs', 'mechatronics_style.yaml'))
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
     parser.add_argument('--data_dir', type=str, help='The file path to the flick/run to be optimized.')
+    parser.add_argument('--dlc', type=str, default='dlc_manual', help='The file path to the flick/run to be optimized.')
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc_manual')
+    DLC_DIR = os.path.join(DATA_DIR, args.dlc)
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
     # print('========== DLC ==========\n')
     # _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
@@ -101,13 +102,13 @@ if __name__ == '__main__':
         start_frame, end_frame = None, None
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
         for i in range(max_idx):    # start_frame
-            # if frame_condition_with_key_markers(i, target_markers, 2):
-            if frame_condition(i, target_markers):
+            if frame_condition_with_key_markers(i, target_markers, 2):
+            # if frame_condition(i, target_markers):
                 start_frame = i
                 break
         for i in range(max_idx, 0, -1): # end_frame
-            # if frame_condition_with_key_markers(i, target_markers, 2):
-            if frame_condition(i, target_markers):
+            if frame_condition_with_key_markers(i, target_markers, 2):
+            # if frame_condition(i, target_markers):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
@@ -146,6 +147,6 @@ if __name__ == '__main__':
                 shutter_delay=sd,        # True/False
                 shutter_delay_mode=sd_mode, # const/variable
                 interpolation_mode=intermode,   # pos/vel/acc
-                video=False,
+                video=True,
                 plot=args.plot
             )

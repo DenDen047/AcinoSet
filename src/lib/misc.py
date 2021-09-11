@@ -123,7 +123,7 @@ def _norm_vector(v):
     return v / np.linalg.norm(v)
 
 
-def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = False, mode: str = 'default') -> List:
+def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = False, mode: str = 'default', intermode: str = 'pos') -> List:
     shutter_delay = states.get('shutter_delay')
 
     marker_pos_arr = []
@@ -131,7 +131,7 @@ def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = Fal
         if shutter_delay is not None:
             taus = shutter_delay[i]
             marker_pos = np.array([
-                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, tau, directions=directions, mode=mode)
+                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, tau, directions=directions, mode=mode, intermode=intermode)
                 for x, dx, ddx, tau in zip(states['x'], states['dx'], states['ddx'], taus)
             ])  # (timestep, marker_idx, xyz)
         else:
@@ -150,9 +150,9 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
     idx = get_pose_params(mode)
     func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
 
-    if dx is None:
+    if dx is None or intermode not in ['vel', 'acc']:
         dx = [0] * len(x)
-    if ddx is None:
+    if ddx is None or intermode not in ['acc']:
         ddx = [0] * len(x)
 
     if mode == 'default':
@@ -233,7 +233,7 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         ]
     elif mode == 'head':
         # rotations
-        RI_0 = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])         # head
+        RI_0 = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])   # head
         R0_I = RI_0.T
 
         # positions
