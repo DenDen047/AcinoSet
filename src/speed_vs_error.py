@@ -46,8 +46,8 @@ if __name__ == '__main__':
 
     data_fpahts = [
         '/data/2017_08_29/top/phantom/run1_1/',
-        # '/data/2017_12_21/top/lily/run1/',
         '/data/2019_03_05/lily/run/',
+        '/data/2019_03_07/menya/run/',
         '/data/2019_03_09/lily/run/',
     ]
 
@@ -129,8 +129,9 @@ if __name__ == '__main__':
         fliersize=1,
         ax=ax
     )
+    ax.set_ylim(0, 20)
     ax.legend()
     # ax.set_title('Speed vs Reprojection Pixel Errors')
-    ax.set_xlabel('Speed $s_{head}$')
-    ax.set_ylabel('Reprojection Errors')
+    ax.set_xlabel('Speed $s_{head}$ [m/s]', fontsize='medium')
+    ax.set_ylabel('Reprojection Errors [px]', fontsize='medium')
     fig.savefig(os.path.join('.', "speed_vs_pixerror.pdf"))
