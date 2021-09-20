@@ -132,6 +132,6 @@ if __name__ == '__main__':
     ax.set_ylim(0, 20)
     ax.legend()
     # ax.set_title('Speed vs Reprojection Pixel Errors')
-    ax.set_xlabel('Speed $s_{head}$ [m/s]', fontsize='medium')
-    ax.set_ylabel('Reprojection Errors [px]', fontsize='medium')
+    ax.set_xlabel('Speed $s_{head}$ (m/s)', fontsize='medium')
+    ax.set_ylabel('Reprojection Errors (px)', fontsize='medium')
     fig.savefig(os.path.join('.', "speed_vs_pixerror.pdf"))
