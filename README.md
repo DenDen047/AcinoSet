@@ -1,6 +1,6 @@
 # AcinoSet: A 3D Pose Estimation Dataset and Baseline Models for Cheetahs in the Wild<img src="https://images.squarespace-cdn.com/content/v1/57f6d51c9f74566f55ecf271/1608473251355-R6MD2DPAGXD541O6KSPO/ke17ZwdGBToddI8pDm48kDJiRRinvyl0ibURJcD42oMUqsxRUqqbr1mOJYKfIPR7LoDQ9mXPOjoJoqy81S2I8N_N4V1vUb5AoIIIbLZhVYxCRW4BPu10St3TBAUQYVKcQRhUxETRWa-oq147TtIoC7IIYHcXSEvrmlBoYmbrKNZ_GGuik8tacc4P7_d_fn_0/cheetahTurn.png?format=2500w" width="375" title="AcinoSet" alt="Cheetah" align="right" vspace = "50">
 
-Daniel Joska, Liam Clark, Naoya Muramatsu, Ricardo Jericevich, Fred Nicolls, Alexander Mathis, Mackenzie W. Mathis, Amir Patel 
+Daniel Joska, Liam Clark, Naoya Muramatsu, Ricardo Jericevich, Fred Nicolls, Alexander Mathis, Mackenzie W. Mathis, Amir Patel
 
 
  AcinoSet is a dataset of free-running cheetahs in the wild that contains 119,490 frames of multi-view synchronized high-speed video footage, camera calibration files and 7,588 human-annotated frames. We utilize markerless animal pose estimation with DeepLabCut to provide 2D keypoints (in the 119K frames). Then, we use three methods that serve as strong baselines for 3D pose estimation tool development: traditional sparse bundle adjustment, an Extended Kalman Filter, and a trajectory optimization-based method we call Full Trajectory Estimation. The resulting 3D trajectories, human-checked 3D ground truth, and an interactive tool to inspect the data is also provided. We believe this dataset will be useful for a diverse range of fields such as ecology, robotics, biomechanics, as well as computer vision.
@@ -13,10 +13,10 @@ Daniel Joska, Liam Clark, Naoya Muramatsu, Ricardo Jericevich, Fred Nicolls, Ale
 - Anaconda
 - The dependecies defined in conda_envs/*.yml
 
-## What we provide: 
+## What we provide:
 
 - 7,588 [ground truth 2D frames](https://www.dropbox.com/sh/z3uv6pnk7paygph/AAAiJOavquW89uPlz_Jzjtfua?dl=0)
-- 119,490 processed frames with 2D keypoint estimation outputs [(H5 files as in the DLC format, and raw video)](https://www.dropbox.com/sh/kp5kmatbv5cdjx2/AABfJGb7ktVK_L0lybOLQIbJa?dl=0) 
+- 119,490 processed frames with 2D keypoint estimation outputs [(H5 files as in the DLC format, and raw video)](https://www.dropbox.com/sh/kp5kmatbv5cdjx2/AABfJGb7ktVK_L0lybOLQIbJa?dl=0)
     - this is currently organized by date > animal ID > "run/attempt"
 - [3D files that are processed using our FTE baseline model](https://www.dropbox.com/sh/kp5kmatbv5cdjx2/AABfJGb7ktVK_L0lybOLQIbJa?dl=0). These can be used for 3D GT.
    - these files are called `fte.pickle`, have a related `(n)_cam_scene_sba.json` file, and can be loaded in the GUI.
@@ -27,7 +27,7 @@ The following sections document how this was created by the code within this rep
 
 ### Pre-trained DeepLabCut Model:
 
-- You can use the `full_cheetah` model provided in the [DLC Model Zoo](http://modelzoo.deeplabcut.org) to re-create the existing H5 files (or on new videos). 
+- You can use the `full_cheetah` model provided in the [DLC Model Zoo](http://modelzoo.deeplabcut.org) to re-create the existing H5 files (or on new videos).
 - Here, we also already provide the videos and H5 outputs of all frames, [here](https://www.dropbox.com/sh/kp5kmatbv5cdjx2/AABfJGb7ktVK_L0lybOLQIbJa?dl=0).
 
 ### Labelling Cheetah Body Positions:

@@ -1,9 +1,11 @@
 import os
-import sys 
+import sys
+import math
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import matplotlib.pyplot as plt
+from typing import Dict, List
 from cv2 import Rodrigues
 from matplotlib import collections  as mc
 from PyQt5 import QtGui, QtCore
@@ -12,7 +14,7 @@ from .misc import get_pose_params
 from .points import common_image_points
 from .utils import create_board_object_pts, load_scene
 
-plt.style.use(os.path.join('..','configs','mplstyle.yaml'))
+plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
 pg.setConfigOptions(antialias=True)
 
 
@@ -73,7 +75,7 @@ def create_grid(obj_points, board_shape, color=[0.5]*3):
     return mesh
 
 
-def plot_calib_board(img_points, board_shape, camera_resolution, frame_fpath=None):    
+def plot_calib_board(img_points, board_shape, camera_resolution, frame_fpath=None):
     corners = np.array(img_points, dtype=np.float32)
     plt.figure(figsize=(8, 4.5))
     if frame_fpath:
@@ -97,7 +99,7 @@ def plot_calib_board(img_points, board_shape, camera_resolution, frame_fpath=Non
         plt.gca().add_collection(lc)
         plt.gca().set_xlim((0, camera_resolution[0]))
         plt.gca().set_ylim((camera_resolution[1], 0))
-    
+
     plt.show()
 
 
@@ -106,34 +108,34 @@ class Animation:
         self.app = QApplication.instance()
         if self.app == None:
             self.app = QApplication([])
-        
-        self.centered = False if "Scene" in title else centered
+
+        self.centered = False if 'Scene' in title else centered
         self.dark_mode = dark_mode
         self.screen_res = self.app.desktop().screenGeometry()
         self.screen_res = np.array([self.screen_res.width(), self.screen_res.height()])
-        
+
         theme_colors = ['w','k']
         pg.setConfigOption('background', theme_colors[dark_mode])
         pg.setConfigOption('foreground', theme_colors[not dark_mode])
-        
+
         self.win = pg.GraphicsLayoutWidget(title=title, size=self.screen_res/2, show=True)
         self.layout = QGridLayout()
         self.win.setLayout(self.layout)
-        
+
         self.view = gl.GLViewWidget()
         self.view.setBackgroundColor([255*(not dark_mode)]*3)
-#         self.view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self.view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.view.opts['distance']=15
         self.view.orbit(-135,10)
-        
+
         # camera pose
         self.k_arr, self.d_arr, self.r_arr, self.t_arr, self.cam_res = load_scene(scene_fpath)
         self.n_cams = len(self.k_arr)
         self.cam_pos = []
-        
+
         grid = gl.GLGridItem(size=QtGui.QVector3D(50,50,0), color=[abs(55-255*(not dark_mode))]*3)
         self.view.addItem(grid)
-        
+
         if not self.centered:
             for r, t in zip(self.r_arr, self.t_arr):
                 self.plot_camera(r, t)
@@ -145,7 +147,7 @@ class Animation:
         else:
             grid.translate(0,0,-0.5)
 
-        
+
     def rodrigues_to_vec(self, r):
         ang = 180 / np.pi * np.linalg.norm(r)
         return (ang, *r)
@@ -165,11 +167,11 @@ class Animation:
         cam.rotate(*R)
         cam.translate(*T)
         self.view.addItem(cam)
-        
+
     def save_snapshot(self, filename, size=None):
         pg.makeQImage(self.view.renderToArray(size if size else self.screen_res)).save(filename)
         self.app.quit()
-        
+
     def show(self):
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             self.app.exec_()
@@ -177,9 +179,9 @@ class Animation:
 
 class Scene(Animation):
     def __init__(self, scene_fpath, **kwargs):
-        Animation.__init__(self, "Scene Reconstruction", scene_fpath, **kwargs)
+        Animation.__init__(self, 'Scene Reconstruction', scene_fpath, **kwargs)
         self.layout.addWidget(self.view, 0, 0, 1, 1)
-        
+
     def plot_calib_board(self, r, t, board_shape, board_edge_len):
         obj_pts = create_board_object_pts(board_shape, board_edge_len)
         calib_board = create_grid(obj_pts, board_shape)
@@ -192,32 +194,32 @@ class Scene(Animation):
         scatter = gl.GLScatterPlotItem(pos=points, color=color, size=size if size else self.screen_res[0]/500, pxMode=True)
         scatter.setGLOptions('translucent')
         self.view.addItem(scatter)
-    
+
 
 class Cheetah(Animation):
     def __init__(self, multiple_reconstructions, scene_fpath, labels, project_func, hide_lure=False, reprojections=True, **kwargs):
-        Animation.__init__(self, "Cheetah Reconstruction", scene_fpath, **kwargs)
+        Animation.__init__(self, 'Cheetah Reconstruction', scene_fpath, **kwargs)
         self.layout.addWidget(self.view, 0, 0, self.n_cams, 1)
-        
+
         # To add a legend, investigate https://groups.google.com/g/pyqtgraph/c/PfJvmjIF3Dg/m/QVG9xUGk-zgJ
-        
+
         # indices correspond to joints in 'markers' variable
         lines_idxs = [0,1,0,2,1,2,1,3,0,3,2,3,3,4,4,5,5,6,6,7,
                       3,8,4,8,8,9,9,10,      # left front leg
                       3,11,4,11,11,12,12,13, # right front leg
                       4,14,5,14,14,15,15,16,
                       4,17,5,17,17,18,18,19]
-        
+
         colours = [[self.dark_mode]*3+[1], # white if dark_mode else black
                    [1,0,1,1],              # fuchsia/magenta
                    [0,1,0,1],              # green
                    [0,0.8,0.8,1]]          # light blue
-        
+
         self.n_reconstructions = len(multiple_reconstructions)
         assert self.n_reconstructions < 5, 'Cannot plot more than 4 reconstructions at a time'
         self.n_frames = len(multiple_reconstructions[0])
         self.frame = 0
-        
+
         # assuming lure is the last element - see misc.get_markers
         self.scatter_frames, self.lines_frames, self.scatter_plots, self.line_plots = [], [], [], []
         for i in range(self.n_reconstructions):
@@ -231,10 +233,10 @@ class Cheetah(Animation):
                     frame = frame[:-1]
                 scatter_frames.append(frame)
                 lines_frames.append(frame[lines_idxs, :])
-                
+
             self.scatter_frames.append(np.array(scatter_frames))
             self.lines_frames.append(np.array(lines_frames))
-            
+
             # create dots
             self.scatter_plots.append(gl.GLScatterPlotItem(pos=np.zeros((1,3)), color=colours[i], size=self.screen_res[0]/250, pxMode=True))
             self.scatter_plots[i].setGLOptions('translucent')
@@ -244,12 +246,12 @@ class Cheetah(Animation):
             self.line_plots.append(gl.GLLinePlotItem(pos=np.zeros((2,3)), color=colours[i], width=self.screen_res[0]/1250, antialias=True, mode='lines'))
             self.line_plots[i].setGLOptions('translucent')
             self.view.addItem(self.line_plots[i])
-        
+
         # ====== 2D ======
         if self.centered:
             self.reprojections = False
             if reprojections:
-                print("Reprojections are not permitted in centered mode")
+                print('Reprojections are not permitted in centered mode')
         else:
             self.reprojections = reprojections
 
@@ -263,14 +265,14 @@ class Cheetah(Animation):
                 cam_w[i].sizeHint = lambda: pg.QtCore.QSize(self.screen_res[0]/7, self.screen_res[1]/7)
                 cam_w[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                 cam_w[i].setBackground([255*(not self.dark_mode)]*3)
-                
+
                 cam_i_lines, cam_data = [], []
                 for j in range(self.n_reconstructions):
-                    cam_data.append(pg.PlotDataItem(connect="pairs", pen=pg.mkPen(255*np.array(colours[j]))))
+                    cam_data.append(pg.PlotDataItem(connect='pairs', pen=pg.mkPen(255*np.array(colours[j]))))
                     cam_w[i].addItem(cam_data[j])
                     cam_params = [self.k_arr[i], self.d_arr[i], self.r_arr[i], self.t_arr[i]]
                     cam_i_lines.append(project_func(self.lines_frames[j], *cam_params).reshape((self.n_frames, -1, 2)))
-                
+
                 self.cam_lines.append(cam_i_lines)
                 self.cam_data.append(cam_data)
                 self.layout.addWidget(cam_w[i], i, 1, 1, 1)
@@ -308,60 +310,155 @@ def plot_extrinsics(scene_fpath, pts_2d, fnames, triangulate_func, manual_points
         img_pts_1, img_pts_2, _ = common_image_points(pts_2d[a], fnames[a], pts_2d[b], fnames[b])
         try:
             pts_3d = triangulate_func(
-                img_pts_1, img_pts_2, 
+                img_pts_1, img_pts_2,
                 scene.k_arr[a], scene.d_arr[a], scene.r_arr[a], scene.t_arr[a],
                 scene.k_arr[b], scene.d_arr[b], scene.r_arr[b], scene.t_arr[b]
             )
             scene.plot_points(pts_3d, color=colors[cam]+[1]) # must have transparency channel
         except:
-            msg = "Could not triangulate points" if len(img_pts_1) else "No points exist"
-            print(msg, f"for cam pair with indices {[a,b]}")
-    
+            msg = 'Could not triangulate points' if len(img_pts_1) else 'No points exist'
+            print(msg, f'for cam pair with indices {[a,b]}')
+
     scene.show()
 
 
-def plot_optimized_states(x, smoothed_x=None, mplstyle_fpath=None):
+def plot_marker_3d(pts_3d, frames=None, fitted_pts_3d=None, fig_title='3D points'):
+    if frames is None:
+        frames = np.arange(len(pts_3d))
+
+    frames += 1 # frames are 1 based indices
+    num_axes = pts_3d.shape[1]
+
+    fig, axs = plt.subplots(1, num_axes, figsize=(num_axes*6,5))
+    fig.suptitle(fig_title)
+    for ax in range(num_axes):
+        axs[ax].plot(frames, pts_3d[:, ax], 'o-', markersize=2)
+        axs[ax].set_xlabel('Frames')
+        axs[ax].set_ylabel('Position (m)')
+        axs[ax].set_title(chr(ord('X') + ax) + ' Axis')
+
+    if fitted_pts_3d is not None:
+        for ax in range(num_axes):
+            err = pts_3d[:, ax] - fitted_pts_3d[:, ax]
+            pad = 2*err.std() # 95%
+            axs[ax].plot(frames, fitted_pts_3d[:, ax])
+            axs[ax].set_ylim(fitted_pts_3d[:, ax].min() - pad, fitted_pts_3d[:, ax].max() + pad)
+            axs[ax].legend(['Original', 'Curve Fit'])
+
+    plt.show(block=False)
+
+
+def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=None):
     x = np.array(x)
     if smoothed_x is not None:
         smoothed_x = np.array(smoothed_x)
     if mplstyle_fpath is not None:
         plt.style.use(mplstyle_fpath)
 
-    titles = [#'Lure positions',
-              'Head positions', 'Head angles', 'Neck angles',
-              'Front torso angle', 'Back torso angles',
-              'Tail base angles', 'Tail mid angles',
-              'Left shoulder angle', 'Left front knee angle',
-              'Right shoulder angles', 'Right front knee angle',
-              'Left hip angle', 'Left back knee angle',
-              'Right hip angle', 'Right back knee angle']
-    
-    lbls = [#['x_l', 'y_l', 'z_l'], # exclude lure for now
-            ['x_0', 'y_0', 'z_0'],
-            ['phi_0', 'theta_0', 'psi_0'], ['phi_1', 'theta_1', 'psi_1'],
-            ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
-            ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
-            ['theta_6'], ['theta_7'], 
-            ['theta_8'], ['theta_9'],
-            ['theta_10'], ['theta_11'],
-            ['theta_12'], ['theta_13']]
+    _titles = [
+        'Lure positions',
+        'Head positions', 'Head angles',
+        'Neck length',
+        'Neck angles',
+        'Front torso angle', 'Back torso angles',
+        'Tail base angles', 'Tail mid angles',
+        'Left shoulder angle', 'Left front knee angle',
+        'Right shoulder angles', 'Right front knee angle',
+        'Left hip angle', 'Left back knee angle',
+        'Right hip angle', 'Right back knee angle'
+    ]
+    _label_lists = [
+        ['x_l', 'y_l', 'z_l'], # exclude lure for now
+        ['x_0', 'y_0', 'z_0'],
+        ['phi_0', 'theta_0', 'psi_0'],
+        ['l_1'],
+        ['phi_1', 'theta_1', 'psi_1'],
+        ['theta_2'], ['phi_3', 'theta_3', 'psi_3'],
+        ['theta_4', 'psi_4'], ['theta_5', 'psi_5'],
+        ['theta_6'], ['theta_7'],
+        ['theta_8'], ['theta_9'],
+        ['theta_10'], ['theta_11'],
+        ['theta_12'], ['theta_13']
+    ]
 
-    idxs = get_pose_params()
-    idxs = [[idxs[l] for l in lbl] for lbl in lbls]
+    idxs = get_pose_params(mode=mode)
+    titles = []
+    label_lists = []
+    for title, lbl in zip(_titles, _label_lists):
+        if set(lbl).issubset(idxs.keys()):
+            titles.append(title)
+            label_lists.append(lbl)
+
+    idxs = [[idxs[l] for l in lbl] for lbl in label_lists]
 
     plt_shape = [len(titles)//2, 2]
-    fig, axs = plt.subplots(*plt_shape, figsize=(13,30))
-    
+    fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
+
     for i in range(plt_shape[0]):
         for j in range(plt_shape[1]):
             k = 2*i+j
-            axs[i,j].set_title(titles[k])
-            axs[i,j].plot(x[:, idxs[k]])
-            lgnd = lbls[k]
+            ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
+            ax.set_title(titles[k])
+            ax.plot(x[:, idxs[k]])
+            lgnd = label_lists[k]
             if smoothed_x is not None:
-                axs[i,j].plot(smoothed_x[:, idxs[k]])
+                ax.plot(smoothed_x[:, idxs[k]])
                 lgnd += [l + ' (smoothed)' for l in lgnd]
-            axs[i,j].legend(lgnd)
-    
+            ax.legend(lgnd)
+
+    plt.show(block=False)
+    return fig, axs
+
+
+def plot_shutter_delay(data, mplstyle_fpath=None):
+    data = np.array(data)
+    n_camera, n_frame = data.shape
+    if mplstyle_fpath is not None:
+        plt.style.use(mplstyle_fpath)
+
+    fig, ax = plt.subplots()
+
+    x = range(1, n_frame+1)
+    for c in range(n_camera):
+        ax.plot(x, data[c,:]*1e3, label=f'camera_{c+1}')
+    ax.legend()
+    ax.set_xlabel('frame')
+    ax.set_ylabel('time delay (ms)')
+    ax.set_title('Shutter Delay')
+
+    return fig, ax
+
+
+def plot_value_sets(values: List, titles: List[str], labels: List[str] = None, mplstyle_fpath=None):
+    assert len(values) == len(titles)
+
+    n_plot = len(titles)
+
+    if mplstyle_fpath is not None:
+        plt.style.use(mplstyle_fpath)
+
+    all_values = np.array(values)
+    ymin = np.nanmin(all_values) - 0.01
+    ymax = np.nanmax(all_values) + 0.01
+
+    plt_shape = [math.ceil(len(titles)/2), 2]
+    fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
+
+    for i in range(plt_shape[0]):
+        for j in range(plt_shape[1]):
+            k = 2*i+j
+            ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
+
+            ax.set_title(titles[k])
+            x = all_values[k, :]    # [n_frame, v]
+            ax.plot(x)
+            ax.set_xlim(0, x.shape[0])
+            ax.set_ylim(ymin, ymax)
+            if labels is not None:
+                ax.legend(labels)
+
+            if len(titles) - 1 == k:
+                break
+
     plt.show(block=False)
     return fig, axs

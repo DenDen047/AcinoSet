@@ -17,8 +17,13 @@ dependencies:
   - matplotlib
   - python=3.7.9
   - pyqtgraph=0.11.0
+  - numba
+  - pytables
   - pip:
     - pyomo
     - pyqt5
-    - tables
+    - Cython
     - nptyping==0.3.1
+    - tqdm
+    - seaborn
+    - opencv-contrib-python

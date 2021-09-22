@@ -78,7 +78,7 @@ class VideoProcessor(object):
 
     def frame_count(self):
         return self.nframes
-    
+
     def codec(self):
         return self.CODEC
 
@@ -181,8 +181,8 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
         # recode the bodyparts2connect into indices for df_x and df_y for speed
         bpts2connect = get_segment_indices(bodyparts2connect, all_bpts)
 
-    print('\nDuration of video: {} s, recorded with {} fps!'.format(round(clip.frame_count() / clip.fps(), 2), round(clip.fps(), 2)),
-          'Total frames: {} with frame dimensions: {} x {}'.format(clip.frame_count(), clip.width(), clip.height()),
+    print(f'\nDuration of video: {round(clip.frame_count() / clip.fps(), 2)} s, recorded with {round(clip.fps(), 2)} fps!',
+          f'Total frames: {clip.frame_count()} with frame dimensions: {clip.width()} x {clip.height()}',
           'Generating frames and creating video...', sep='\n')
 
     df_x, df_y, df_likelihood = df.values.reshape((df.index.size, -1, 3)).T
@@ -197,8 +197,9 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
     colors = (C[:, :3] * 255).astype(np.uint8).tolist()
 
     with np.errstate(invalid='ignore'):
-        for frame_idx in trange(clip.frame_count()):
+        for frame_idx in trange(clip.frame_count(), unit=' f'):
             image = clip.load_frame()
+
             try:
                 idx = df.index.get_loc(frame_idx)
                 # Draw the skeleton for specific bodyparts to be connected
@@ -221,24 +222,41 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
     clip.close()
 
 
-def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color, video):
+def proc_video(out_dir, bodyparts, codec, bodyparts2connect, outputframerate, draw_skeleton, pcutoff, dotsize, colormap, skeleton_color, iterable):
     """Helper function for create_labeled_videos"""
+    point_df = iterable['point2d_df']
+    video = iterable['video_fpath']
     video = os.path.abspath(video)
     vname = os.path.splitext(os.path.basename(video))[0]
 
     start_path = os.getcwd()
     os.chdir(out_dir)
 
-    print('Loading {} and data.'.format(vname))
+    print(f'Loading {vname} and data.')
     try:
-        filepath = glob(vname + '*.h5')[0]
+        filepath = glob(vname + '*.h5')[0]  # TODO: this variable should be an argument
         videooutname = filepath.replace('.h5', '.mp4')
 
-        df = pd.read_hdf(filepath)
-        labeled_bpts = [bp for bp in df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
+        # for head_only
+        if 'likelihood' not in point_df.columns.get_level_values('coords').unique():
+            df = point_df
+            index_names = df.columns.names
+            default_tuples = df.columns.to_flat_index()
+            tuples = []
+            for t in default_tuples:
+                tuples.append(t)
+                if t[-1] == 'y':
+                    t = tuple(list(t[:-1]) + ['likelihood'])
+                    tuples.append(t)
+            columns = pd.MultiIndex.from_tuples(tuples, names=index_names)
+            df = df.reindex(columns=columns)
+            df = df.rename(index=lambda s: int(s[-7:-4]))
+            point_df = df
+
+        labeled_bpts = [bp for bp in point_df.columns.get_level_values('bodyparts').unique() if bp in bodyparts]
         clip = VideoProcessorCV(in_name=video, out_name=videooutname, codec=codec)
 
-        CreateVideo(clip, df, pcutoff, labeled_bpts, bodyparts2connect, dotsize, colormap, draw_skeleton, skeleton_color)
+        CreateVideo(clip, point_df, pcutoff, labeled_bpts, bodyparts2connect, dotsize, colormap, draw_skeleton, skeleton_color)
 
         os.chdir(start_path)
 

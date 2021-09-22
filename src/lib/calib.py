@@ -1,7 +1,7 @@
 import json
 import cv2 as cv
 import numpy as np
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict
 from nptyping import Array
 from scipy.optimize import least_squares
 from .points import common_image_points
@@ -13,7 +13,7 @@ from .misc import redescending_loss, global_positions, rotation_matrix_from_vect
 
 def calibrate_camera(obj_pts: Array[np.float32, ..., 3], img_pts: Array[np.float32, ..., ..., 2],
                      cam_res: Tuple[int, int]) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray], None]:
-    assert len(img_pts)>=4, "Need at least 4 vaild frames to perform calibration."
+    assert len(img_pts)>=4, 'Need at least 4 vaild frames to perform calibration.'
     obj_pts = np.repeat(obj_pts[np.newaxis, :, :], img_pts.shape[0], axis=0).reshape((img_pts.shape[0], -1, 1, 3))
     img_pts = img_pts.reshape((img_pts.shape[0], -1, 1, 2))
     flags = cv.CALIB_RATIONAL_MODEL + cv.CALIB_FIX_PRINCIPAL_POINT
@@ -72,7 +72,7 @@ def project_points(obj_pts, k, d, r, t):
 def calibrate_fisheye_camera(obj_pts: Array[np.float32, ..., 3], img_pts: Array[np.float32, ..., ..., 2],
                              cam_res: Tuple[int, int]) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray,
                                                                     np.ndarray, Array[np.float32, ..., ..., 2]], None]:
-    assert len(img_pts) >= 4, "Need at least 4 valid frames to perform calibration."
+    assert len(img_pts) >= 4, 'Need at least 4 valid frames to perform calibration.'
     obj_pts_new = np.repeat(obj_pts[np.newaxis, :, :], img_pts.shape[0], axis=0).reshape((img_pts.shape[0], -1, 1, 3))
     img_pts_new = img_pts.reshape((img_pts.shape[0], -1, 1, 2))
     flags = cv.fisheye.CALIB_RECOMPUTE_EXTRINSIC + cv.fisheye.CALIB_CHECK_COND + cv.fisheye.CALIB_FIX_SKEW
@@ -83,9 +83,9 @@ def calibrate_fisheye_camera(obj_pts: Array[np.float32, ..., 3], img_pts: Array[
         if ret:
             return k, d, r, t, img_pts, ret
     except Exception as e:
-        if "CALIB_CHECK_COND" in str(e):
-            idx = int(str(e)[str(e).find("input array ") + 12:].split(" ")[0])
-            print(f"Image points at index {idx} caused an ill-conditioned matrix. Removing from array...")
+        if 'CALIB_CHECK_COND' in str(e):
+            idx = int(str(e)[str(e).find('input array ') + 12:].split(' ')[0])
+            print(f'Image points at index {idx} caused an ill-conditioned matrix. Removing from array...')
             img_pts = img_pts[np.arange(len(img_pts)) != idx]
             return calibrate_fisheye_camera(obj_pts, img_pts, cam_res)
 
@@ -129,7 +129,7 @@ def triangulate_points_fisheye(img_pts_1, img_pts_2, k1, d1, r1, t1, k2, d2, r2,
     return pts_3d
 
 
-def project_points_fisheye(obj_pts, k, d, r, t):
+def project_points_fisheye(obj_pts, k, d, r, t, shutter_delay_param: Dict = None):  # TODO
     obj_pts_reshaped = obj_pts.reshape((-1, 1, 3))
     r_vec = cv.Rodrigues(r)[0]
     pts =  cv.fisheye.projectPoints(obj_pts_reshaped, r_vec, t, k, d)[0].reshape((-1, 2))
@@ -152,11 +152,11 @@ def calibrate_pairwise_extrinsics(calib_func, img_pts_arr, fnames_arr, k_arr, d_
                          [0, 1, 0]], dtype=np.float32)
     t_arr[0] = np.array([[0, 0, 0]], dtype=np.float32).T
     # Get relative pairwise transformations between subsequent cameras
-    print(f"Pairwise calibration using cam pairs {cam_pairs}\n")
-    print("camera pair", 'common frames', 'RMS reprojection error', sep='\t')
+    print(f'Pairwise calibration using cam pairs {cam_pairs}\n')
+    print('camera pair', 'common frames', 'RMS reprojection error', sep='\t')
     incomplete_cams = []
     for cam_a, cam_b in cam_pairs:
-        print(f"{cam_a} & {cam_b}", end='\t'*2)
+        print(f'{cam_a} & {cam_b}', end='\t'*2)
         i, j = cams.index(cam_a), cams.index(cam_b)
         # Extract common points between cameras into img_pts 1 & 2
         img_pts_1, img_pts_2, _ = common_image_points(img_pts_arr[i], fnames_arr[i], img_pts_arr[j], fnames_arr[j])
@@ -164,13 +164,13 @@ def calibrate_pairwise_extrinsics(calib_func, img_pts_arr, fnames_arr, k_arr, d_
         if not len(img_pts_1):
             r_arr[j] = np.array(dummy_scene_data['r'][cam_b-1])
             t_arr[j] = np.array(dummy_scene_data['t'][cam_b-1])
-            print(f"\nInstead, R[{cam_b-1}] and T[{cam_b-1}] from dummy_scene.json were used for cam {cam_b}")
+            print(f'\nInstead, R[{cam_b-1}] and T[{cam_b-1}] from dummy_scene.json were used for cam {cam_b}')
             incomplete_cams.append(cam_b)
         else:
             # Create object points
             obj_pts = create_board_object_pts(board_shape, board_edge_len)
             rms, r, t = calib_func(obj_pts, img_pts_1, img_pts_2, k_arr[i], d_arr[i], k_arr[j], d_arr[j], cam_res)
-            print(f"{rms:.5f} pixels")
+            print(f'{rms:.5f} pixels')
             # https://en.wikipedia.org/wiki/Camera_resectioning#Extrinsic_parameters
             # T is the world origin position in the camera coordinates.
             # The world position of the camera is C = -(R^-1)@T.
@@ -178,14 +178,14 @@ def calibrate_pairwise_extrinsics(calib_func, img_pts_arr, fnames_arr, k_arr, d_
             r_arr[j] = r @ r_arr[i] # matrix product
             t_arr[j] = r @ t_arr[i] + t
 
-    print("\nDone!")
+    print('\nDone!')
     return r_arr, t_arr, incomplete_cams
 
 
 # ========== EXTRINSIC REFINEMENT ALGORITHMS ==========
 
 def fix_skew_scene(cams, r_arr, t_arr, ave_cam_height=0.5):
-    # seperate cams list into side 1 & 2
+    # separate cams list into side 1 & 2
     cam_sets = [list(filter(lambda x: x<4, cams)), list(filter(lambda x: x>3, cams))]
     cam_sets_len = np.array([len(cam_sets[0]),len(cam_sets[1])])
      # check if one of the cam sets have more than 1 cam
@@ -234,7 +234,7 @@ def adjust_extrinsics_manual_points(calib_func, img_pts_arr, cam_idxs_to_correct
             cam_b_params += [r_arr[b] @ R.T, t_arr[b] - r_arr[b] @ t] if b in cam_idxs_to_correct else [r_arr[b], t_arr[b]]
 
             skew_3d_pts = triangulate_func(
-                np.array(img_pts_arr[:, a]), np.array(img_pts_arr[:, b]), 
+                np.array(img_pts_arr[:, a]), np.array(img_pts_arr[:, b]),
                 *cam_a_params, *cam_b_params
             )
 
@@ -265,12 +265,12 @@ def adjust_extrinsics_manual_points(calib_func, img_pts_arr, cam_idxs_to_correct
 
     if type(cam_idxs_to_correct) is int:
         cam_idxs_to_correct = [cam_idxs_to_correct]
-        msg = f"Cam with index {cam_idxs_to_correct} is to have its pose corrected."
+        msg = f'Cam with index {cam_idxs_to_correct} is to have its pose corrected.'
     else:
-        msg = f"Cams with indices {cam_idxs_to_correct} are to have their poses corrected"
+        msg = f'Cams with indices {cam_idxs_to_correct} are to have their poses corrected'
 
     n_cams = len(k_arr)
-    assert n_cams == img_pts_arr.shape[1], "Number of cams in intrinsic file differs from number of cams in manual points file"
+    assert n_cams == img_pts_arr.shape[1], 'Number of cams in intrinsic file differs from number of cams in manual points file'
 
     cam_pairs = []
     for i in cam_idxs_to_correct:
@@ -278,13 +278,13 @@ def adjust_extrinsics_manual_points(calib_func, img_pts_arr, cam_idxs_to_correct
         cam_pairs.append(sorted([i, (i+1) % n_cams]))
     cam_pairs = np.unique(cam_pairs,axis=0).tolist() # remove duplicates
 
-    print(msg, "\nMinimizing error for", calib_type, "cam pairs with indices", cam_pairs, "...\n")
+    print(msg, '\nMinimizing error for', calib_type, 'cam pairs with indices', cam_pairs, '...\n')
 
     R0, t0 = np.identity(3), np.zeros(3)
     R0_t0 = np.concatenate([cv.Rodrigues(R0)[0].flatten(), t0]) # pack initial R_t
 
     res = least_squares(residual_arr, R0_t0) # loss = linear (default)
-    print(res.message, f"success: {res.success}", f"func evals: {res.nfev}", f"cost: {res.cost}\n", sep="\n")
+    print(res.message, f'success: {res.success}', f'func evals: {res.nfev}', f'cost: {res.cost}\n', sep='\n')
 
     R = cv.Rodrigues(res.x[0:3])[0] # convert fromm rodrigues vector to rotation matrix
     t = res.x[3:6].reshape((3,1))
@@ -334,7 +334,7 @@ def _calibrate_pairwise_extrinsics(
             board_edge_len = board_edge_len_1
         else:
             np.testing.assert_equal(board_edge_len, board_edge_len_1) # handles nan case
-            
+
     # Load the dummy scene
     with open(dummy_scene_fpath, 'rb') as f:
         dummy_scene_data = json.load(f)
@@ -348,7 +348,7 @@ def _calibrate_pairwise_extrinsics(
         'r': dummy_rs,
         't': dummy_ts,
     }
-    
+
     # determine cam pairs to be used in calibration
     cams = np.array([int(list(filter(str.isdigit, fpath))[-1]) for fpath in points_fpaths])
     cam_pairs = None
@@ -373,21 +373,21 @@ def _calibrate_pairwise_extrinsics(
 
     if incomplete_cams:
         from os.path import join, dirname
-        
-        incomplete_fpath = out_fpath.replace(".json", "_before_corrections.json")
+
+        incomplete_fpath = out_fpath.replace('.json', '_before_corrections.json')
         save_scene(incomplete_fpath, k_arr, d_arr, r_arr, t_arr, cam_res)
-        
+
         if manual_points_fpath is None:
             manual_points_fpath = join(dirname(points_fpaths[0]), 'manual_points.json')
 
         # this uses only the first incorrect cam - must be generalised to use all incorrect cams!!
-        print("Running Least Squares using manual points to correct extrinsics...")
+        print('Running Least Squares using manual points to correct extrinsics...')
         try:
             img_pts_arr, *_ = load_manual_points(manual_points_fpath)
         except FileNotFoundError as e:
-            print(f"\nPlease rerun this calibration after obtaining manually-labelled points")
+            print(f'\nPlease rerun this calibration after obtaining manually-labelled points')
             raise FileNotFoundError(e)
-            
+
         cam_idxs_to_correct = list(range(cams.index(incomplete_cams[0]),len(cams)))
         r_arr, t_arr = adjust_extrinsics_manual_points(calib_func, img_pts_arr, cam_idxs_to_correct, k_arr, d_arr, r_arr, t_arr)
 
