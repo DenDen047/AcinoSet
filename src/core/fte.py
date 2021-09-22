@@ -555,7 +555,7 @@ def fte(
         states['shutter_delay'] = sd_state
 
     # calculate residual error
-    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, mode=mode, directions=False, intermode=intermode)
+    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, mode=mode, directions=True, intermode=intermode)
     points_3d_dfs = []
     for positions_3d in positions_3ds:
         frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
@@ -576,7 +576,7 @@ def fte(
     save_error_dists(pix_errors, OUT_DIR)
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=False, intermode=intermode, save_videos=video)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')

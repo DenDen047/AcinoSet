@@ -27,3 +27,4 @@ dependencies:
     - tqdm
     - seaborn
     - opencv-contrib-python
+    - scikit-spatial
