@@ -16,6 +16,8 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 from scipy.stats import linregress
 from pyomo.opt import SolverFactory
+from skspatial.objects import Plane, Points
+from skspatial.plotting import plot_3d
 
 from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
@@ -64,6 +66,18 @@ if __name__ == '__main__':
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
     assert res == cam_res
+    # aligned with a ground plane
+    points = Points(t_arr.squeeze())
+    plane = Plane.best_fit(points)
+
+    fig, ax = plot_3d(
+        points.plotter(c='k', s=50, depthshade=False),
+        plane.plotter(alpha=0.2, lims_x=(-10, 10), lims_y=(-10, 10)),
+    )
+    out_fpath = os.path.join(DATA_DIR, 'test.pdf')
+    fig.savefig(out_fpath, transparent=True)
+    print(f'Saved {out_fpath}\n')
+    sys.exit(1)
     camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, n_cams)
     # load DLC data
     dlc_points_fpaths = sorted(glob(os.path.join(DLC_DIR, '*.h5')))
