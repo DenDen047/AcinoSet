@@ -298,8 +298,8 @@ def save_sba(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
 def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, save_videos=True) -> str:
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
-    positions = [get_3d_marker_coords(state, directions=directions, mode=mode) for state in states['x']]
-    smoothed_positions = [get_3d_marker_coords(state, directions=directions, mode=mode) for state in states['smoothed_x']]
+    positions = [get_3d_marker_coords({'x': state}, directions=directions, mode=mode) for state in states['x']]
+    smoothed_positions = [get_3d_marker_coords({'x': state}, directions=directions, mode=mode) for state in states['smoothed_x']]
 
     out_fpath = os.path.join(out_dir, 'ekf.pickle')
     utils.save_optimised_cheetah(positions, out_fpath, extra_data=dict(smoothed_positions=smoothed_positions, **states, start_frame=start_frame))
