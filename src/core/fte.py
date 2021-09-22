@@ -25,12 +25,28 @@ from lib.misc import get_markers, rot_x, rot_y, rot_z
 from .metrics import save_error_dists
 
 
-def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, shutter_delay: bool = False, interpolation_mode: str = 'pos', plot: bool = False) -> str:
+def fte(
+    OUT_DIR,
+    points_2d_df,
+    mode, camera_params,
+    start_frame, end_frame, dlc_thresh,
+    scene_fpath,
+    params: Dict = {},
+    shutter_delay: bool = False, shutter_delay_mode: str = 'const', interpolation_mode: str = 'pos',
+    video: bool = True,
+    plot: bool = False
+) -> str:
     # === INITIAL VARIABLES ===
+    # options
     sd = shutter_delay
+    sd_mode = shutter_delay_mode
     intermode = interpolation_mode
+    if sd:
+        assert sd_mode == 'const' or sd_mode == 'variable'
+        assert intermode == 'vel' or intermode == 'acc'
+    else:
+        assert intermode == 'pos'
     # dirs
-    OUT_DIR = os.path.join(DATA_DIR, 'fte')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'fte.log'))
     # cost function
@@ -101,7 +117,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         'phi_0': 13,
         'theta_0': 9,
         'psi_0': 26,
-        'l_1': 32,
+        'l_1': 4,
         'phi_1': 32,
         'theta_1': 18,
         'psi_1': 12,
@@ -167,8 +183,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     D2 = 2  # dimensionality of measurements (image points)
     D3 = 3  # dimensionality of measurements (3d points)
 
-    fps = params['vid_fps']
-    m.Ts = 1.0 / fps # timestep
+    m.Ts = 1.0 / params['vid_fps']  # timestep
     m.N  = pyo.RangeSet(N)
     m.P  = pyo.RangeSet(P)
     m.L  = pyo.RangeSet(L)
@@ -192,7 +207,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         val    = points_2d_df[n_mask & l_mask & c_mask]
         return val['likelihood'].values[0]
 
-    def init_meas_weights(model, n, c, l):
+    def init_meas_weights(m, n, c, l):
         likelihood = get_likelihood_from_df(n + start_frame, c, l)
         if likelihood > dlc_thresh:
             return 1 / R
@@ -207,7 +222,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     m.meas_err_weight  = pyo.Param(m.N, m.C, m.L, initialize=init_meas_weights, mutable=True)
     m.model_err_weight = pyo.Param(m.P, initialize=init_model_weights)
-    m.meas             = pyo.Param(m.N, m.C, m.L, m.D2, initialize=init_measurements_df)
+    m.meas = pyo.Param(m.N, m.C, m.L, m.D2, initialize=init_measurements_df)
 
     # ===== MODEL VARIABLES =====
     m.x           = pyo.Var(m.N, m.P) # position
@@ -216,7 +231,11 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     m.poses       = pyo.Var(m.N, m.L, m.D3)
     m.slack_model = pyo.Var(m.N, m.P)
     m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0)
-    m.shutter_delay = pyo.Var(m.N, m.C, initialize=0.0)
+    if sd:
+        if sd_mode == 'const':
+            m.shutter_delay = pyo.Var(m.C, initialize=0.0)
+        elif sd_mode == 'variable':
+            m.shutter_delay = pyo.Var(m.N, m.C, initialize=0.0)
 
     # ========= LAMBDIFY SYMBOLIC FUNCTIONS ========
     func_map = {
@@ -283,16 +302,20 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     print('- Shutter delay')
 
     def shutter_base_constraint(m, n):
-        return m.shutter_delay[n, 1] == 0.0
+        if sd_mode == 'const':
+            return m.shutter_delay[1] == 0.0
+        elif sd_mode == 'variable':
+            return m.shutter_delay[n, 1] == 0.0
 
     def shutter_delay_constraint(m, n, c):
-        return (-m.Ts, m.shutter_delay[n, c], m.Ts)
+        if sd_mode == 'const':
+            return (-m.Ts, m.shutter_delay[c], m.Ts)
+        if sd_mode == 'variable':
+            return (-m.Ts, m.shutter_delay[n, c], m.Ts)
 
-    def disable_shutter_delay(m, n, c):
-        return m.shutter_delay[n, c] == 0.0
-
-    m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
-    m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint if sd else disable_shutter_delay)
+    if sd:
+        m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
+        m.shutter_delay_constraint = pyo.Constraint(m.N, m.C, rule=shutter_delay_constraint)
 
     #===== POSE CONSTRAINTS =====
     print('- Pose')
@@ -311,6 +334,9 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     def head_theta_0(m, n):
         return abs(m.x[n,idx['theta_0']]) <= np.pi / 6
     # neck
+    def neck_l_1(m, n):
+        # return (0.2, m.x[n,idx['l_1']], 0.3)
+        return m.x[n,idx['l_1']] == 0.28
     def neck_phi_1(m, n):
         return abs(m.x[n,idx['phi_1']]) <= np.pi / 6
     def neck_theta_1(m, n):
@@ -362,6 +388,8 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         m.head_phi_0           = pyo.Constraint(m.N, rule=head_phi_0)
     if 'theta_0' in markers:
         m.head_theta_0         = pyo.Constraint(m.N, rule=head_theta_0)
+    if 'l_1' in markers:
+        m.neck_length = pyo.Constraint(m.N, rule=neck_l_1)
     if 'phi_1' in markers:
         m.neck_phi_1           = pyo.Constraint(m.N, rule=neck_phi_1)
     if 'theta_1' in markers:
@@ -411,17 +439,30 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         # l ... DLC label
         # project
         K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
-        tau = m.shutter_delay[n, c]
-        x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
-        y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
-        z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+        if intermode=='pos':
+            x = m.poses[n,l,1]
+            y = m.poses[n,l,2]
+            z = m.poses[n,l,3]
+        else:
+            if sd_mode == 'const':
+                tau = m.shutter_delay[c]
+            elif sd_mode == 'variable':
+                tau = m.shutter_delay[n, c]
+            if sd and intermode=='vel':
+                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau
+                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau
+                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
+            elif sd and intermode=='acc':
+                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
+                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
+                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
     m.measurement = pyo.Constraint(m.N, m.C, m.L, m.D2, rule=measurement_constraints)
 
     # ===== INTEGRATION CONSTRAINTS =====
     print('- Numerical integration')
-    l_idx = [i for k, i in idx.items() if k[:2] == 'l_']
 
     def backwards_euler_pos(m,n,p):
         if n > 1:
@@ -437,10 +478,7 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
 
     def constant_acc(m, n, p):
         if n > 1:
-            if p in l_idx:
-                return (None, m.ddx[n,p], None)
-            else:
-                return m.ddx[n,p] == m.ddx[n-1,p] + m.slack_model[n,p]
+            return m.ddx[n,p] == m.ddx[n-1,p] + m.slack_model[n,p]
         else:
             return pyo.Constraint.Skip
 
@@ -499,29 +537,25 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
     app.stop_logging()
 
     # ========= SAVE FTE RESULTS ========
-    print('----- Shutter Delay -----')
-    for c in m.C:
-        result = pd.DataFrame(pd.Series([m.shutter_delay[n, c].value for n in m.N]).describe()).transpose()
-        print(f'Camera {c}')
-        print(result)
     x, dx, ddx = [], [], []
     for n in m.N:
         x.append([m.x[n, p].value for p in m.P])
         dx.append([m.dx[n, p].value for p in m.P])
         ddx.append([m.ddx[n, p].value for p in m.P])
-    shutter_delay = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     states = dict(
         x=x,
         dx=dx,
         ddx=ddx,
-        shutter_delay=[[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
     )
-
-    # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=True, save_videos=True)
+    if sd:
+        if sd_mode == 'const':
+            sd_state = [[m.shutter_delay[c].value for n in m.N] for c in m.C]
+        elif sd_mode == 'variable':
+            sd_state = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
+        states['shutter_delay'] = sd_state
 
     # calculate residual error
-    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, directions=True, mode=mode)
+    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, mode=mode, directions=True, intermode=intermode)
     points_3d_dfs = []
     for positions_3d in positions_3ds:
         frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
@@ -538,12 +572,17 @@ def fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         ).astype({'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'})
         points_3d_dfs.append(points_3d_df)
     pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
+    states['reprj_errors'] = pix_errors
     save_error_dists(pix_errors, OUT_DIR)
+
+    # save pkl/mat and video files
+    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
     app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
-    fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
-    app.plot_shutter_delay(shutter_delay, out_fpath=fig_fpath)
+    if sd:
+        fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
+        app.plot_shutter_delay(sd_state, out_fpath=fig_fpath)
 
     return out_fpath

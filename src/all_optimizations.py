@@ -32,6 +32,7 @@ plt.style.use(os.path.join('/configs', 'mechatronics_style.yaml'))
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
     parser.add_argument('--data_dir', type=str, help='The file path to the flick/run to be optimized.')
+    parser.add_argument('--dlc', type=str, default='dlc', help='The file path to the flick/run to be optimized.')
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
@@ -55,10 +56,10 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, 'dlc')
+    DLC_DIR = os.path.join(DATA_DIR, args.dlc)
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    # print('========== DLC ==========\n')
+    # _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -77,37 +78,34 @@ if __name__ == '__main__':
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         target_markers = misc.get_markers(mode)
-        key_markers = ['nose', 'r_eye', 'l_eye']
 
-        def frame_condition(i: int, n_markers: int) -> bool:
+        def frame_condition(i: int, target_markers: List[str]) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
             num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
-            return num_marker(i) >= n_markers
+            return num_marker(i) >= len(target_markers)
 
-        def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int, n_markers: int) -> bool:
-            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
+        def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int) -> bool:
+            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in key_markers])
             markers = filtered_points_2d_df.query(
                 f'frame == {i} and ({markers_condition})'
             )['marker']
 
             values, counts = np.unique(markers, return_counts=True)
-            if len(values) != n_markers:
+            if len(values) != len(key_markers):
                 return False
-
-            counts = [counts[np.where(values==k)[0][0]] for k in key_markers]
 
             return min(counts) >= n_min_cam
 
         start_frame, end_frame = None, None
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
-        for i in range(max_idx):
-            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            # if frame_condition(i, len(target_markers)):
+        for i in range(max_idx):    # start_frame
+            # if frame_condition_with_key_markers(i, target_markers, 2):
+            if frame_condition(i, target_markers):
                 start_frame = i
                 break
-        for i in range(max_idx, 0, -1):
-            if frame_condition_with_key_markers(i, key_markers, 2, len(target_markers)):
-            # if frame_condition(i, len(target_markers)):
+        for i in range(max_idx, 0, -1): # end_frame
+            # if frame_condition_with_key_markers(i, target_markers, 2):
+            if frame_condition(i, target_markers):
                 end_frame = i
                 break
         if start_frame is None or end_frame is None:
@@ -118,21 +116,23 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
-    print('========== Triangulation ==========\n')
-    core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
-    print('========== SBA ==========\n')
-    core.sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
-    print('========== EKF ==========\n')
-    core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    # print('========== Triangulation ==========\n')
+    # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
+    # print('========== SBA ==========\n')
+    # core.sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
+    # print('========== EKF ==========\n')
+    # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     print('========== FTE ==========\n')
-    core.fte(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, shutter_delay=True, interpolation_mode='vel', plot=args.plot)
-
-    if args.plot:
-        print('Plotting results...')
-        data_fpaths = [
-            os.path.join(DATA_DIR, 'tri', 'tri.pickle'),    # plot is too busy when tri is included
-            os.path.join(DATA_DIR, 'sba', 'sba.pickle'),
-            os.path.join(DATA_DIR, 'ekf', 'ekf.pickle'),
-            os.path.join(DATA_DIR, 'fte', 'fte.pickle')
-        ]
-        app.plot_multiple_cheetah_reconstructions(data_fpaths, reprojections=False, dark_mode=True)
+    OUT_DIR = os.path.join(DATA_DIR, 'fte')
+    pkl_fpath = core.fte(
+        OUT_DIR,
+        points_2d_df, mode, camera_params,
+        start_frame, end_frame, args.dlc_thresh,
+        scene_fpath,
+        params=vid_params,
+        shutter_delay=True,         # True/False
+        shutter_delay_mode='const', # const/variable
+        interpolation_mode='vel',   # pos/vel/acc
+        video=True,
+        plot=args.plot
+    )
