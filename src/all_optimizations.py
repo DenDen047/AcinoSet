@@ -16,6 +16,8 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 from scipy.stats import linregress
 from pyomo.opt import SolverFactory
+from skspatial.objects import Plane, Points
+from skspatial.plotting import plot_3d
 
 from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
@@ -39,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'head'
+    mode = 'upper_body'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'

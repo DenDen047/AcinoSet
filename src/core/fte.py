@@ -153,6 +153,9 @@ def fte(
     params['redesc_b'] = redesc_b
     params['redesc_c'] = redesc_c
     params['scene_fpath'] = scene_fpath
+    params['markers'] = dict(zip(markers, range(len(markers))))
+    params['state_indices'] = idx
+    params['skeletons'] = misc.get_skeleton(mode)
     # params['camera_params'] = camera_params
     params['R'] = R
     params['Q'] = _Q

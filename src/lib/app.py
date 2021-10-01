@@ -317,12 +317,13 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
 def save_fte(states, mode, out_dir, scene_fpath, start_frame, intermode='pos', directions=True, save_videos=True) -> str:
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
     n_cam = len(video_fpaths)
-    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, intermode=intermode, directions=directions)   # state -> 3d marker
 
     # save 3d points
+    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, intermode=intermode)   # state -> 3d marker
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     utils.save_optimised_cheetah(position3d_arr, out_fpath, extra_data=dict(**states, start_frame=start_frame))
     # reproject 3d points into 2d
+    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, intermode=intermode, directions=directions)   # state -> 3d marker
     bodyparts = get_markers(mode, directions=directions)
     point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
 
