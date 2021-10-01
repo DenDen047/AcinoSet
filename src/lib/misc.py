@@ -49,8 +49,8 @@ def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
     return s
 
 
-def get_skeleton():
-    return [
+def get_skeleton(mode: str = 'default'):
+    connections = [
         ['nose', 'l_eye'], ['nose', 'r_eye'], ['nose', 'neck_base'], ['l_eye', 'neck_base'], ['r_eye', 'neck_base'],
         ['neck_base', 'spine'], ['spine', 'tail_base'], ['tail_base', 'tail1'], ['tail1', 'tail2'],
         ['neck_base', 'r_shoulder'], ['r_shoulder', 'r_front_knee'], ['r_front_knee', 'r_front_ankle'], # ['r_front_ankle', 'r_front_paw'],
@@ -58,6 +58,15 @@ def get_skeleton():
         ['tail_base', 'r_hip'], ['r_hip', 'r_back_knee'], ['r_back_knee', 'r_back_ankle'], # ['r_back_ankle', 'r_back_paw'],
         ['tail_base', 'l_hip'], ['l_hip', 'l_back_knee'], ['l_back_knee', 'l_back_ankle'], # ['l_back_ankle', 'l_back_paw']
     ]   # exludes paws for now!
+
+    markers = get_markers(mode)
+
+    skeletons = []
+    for parts in connections:
+        if all(p in markers for p in parts):
+            skeletons.append(parts)
+
+    return skeletons
 
 
 def get_pose_params(mode: str = 'default') -> Dict[str, List]:
