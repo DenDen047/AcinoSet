@@ -1,4 +1,6 @@
+import enum
 import os
+import re
 import sys
 import json
 import numpy as np
@@ -38,6 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
+    parser.add_argument('--ignore_cam', type=int, action='append', required=False, help='The camera index/indices to ignore for the trajectory estimation')
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
@@ -66,13 +69,32 @@ if __name__ == '__main__':
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
     assert res == cam_res
-    camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, n_cams)
     # load DLC data
     dlc_points_fpaths = sorted(glob(os.path.join(DLC_DIR, '*.h5')))
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
+    m = re.findall(r'cam([0-9]+)', ' '.join(dlc_points_fpaths))
+    cam_names = [i for i in m] # 1-6
+    # ignored cameras
+    if args.ignore_cam is not None and len(args.ignore_cam) > 0:
+        def del_elements(arr, indices):
+            if type(arr) is list:
+                return [a for i, a in enumerate(arr) if i not in indices]
+            elif type(arr) is np.ndarray:
+                indices = [i for i in range(len(arr)) if i not in indices]
+                return arr[indices, :]
+        ignore_cam_idx = [i for i, c in enumerate(cam_names) if int(c) in args.ignore_cam] # 0-5
+        k_arr = del_elements(k_arr, ignore_cam_idx)
+        d_arr = del_elements(d_arr, ignore_cam_idx)
+        r_arr = del_elements(r_arr, ignore_cam_idx)
+        t_arr = del_elements(t_arr, ignore_cam_idx)
+        cam_names = del_elements(cam_names, ignore_cam_idx)
+        dlc_points_fpaths = del_elements(dlc_points_fpaths, ignore_cam_idx)
+    # prepare variables
+    n_cams = len(k_arr)
+    camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams)
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, frame_shifts=[0,0,0,0,0,0], verbose=False)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters

@@ -8,6 +8,7 @@ from typing import Dict, List
 from . import utils
 from .points import find_corners_images, EOM_curve_fit
 from . import misc
+from pprint import pprint
 from . import plotting
 from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
@@ -314,8 +315,14 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     return out_fpath
 
 
-def save_fte(states, mode, out_dir, scene_fpath, start_frame, intermode='pos', directions=True, save_videos=True) -> str:
-    video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
+def save_fte(states, mode, out_dir, cam_params, start_frame, intermode='pos', directions=True, save_videos=True) -> str:
+    video_fpaths = []
+    k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
+    for name in cam_names:
+        video_fpaths.append(
+            os.path.join(os.path.dirname(out_dir), f'cam{name}.mp4')
+        )
+    video_fpaths = sorted(video_fpaths)
     n_cam = len(video_fpaths)
 
     # save 3d points
@@ -325,7 +332,7 @@ def save_fte(states, mode, out_dir, scene_fpath, start_frame, intermode='pos', d
     # reproject 3d points into 2d
     position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, intermode=intermode, directions=directions)   # state -> 3d marker
     bodyparts = get_markers(mode, directions=directions)
-    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, bodyparts, project_points_fisheye, start_frame)
+    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=directions)

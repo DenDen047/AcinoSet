@@ -104,7 +104,7 @@ def fte(
         return v
 
     # ========= IMPORT CAMERA & SCENE PARAMS ========
-    K_arr, D_arr, R_arr, t_arr, cam_res, n_cams = camera_params
+    K_arr, D_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
     D_arr = D_arr.reshape((-1,4))
 
     # ========= IMPORT DATA ========
@@ -579,7 +579,7 @@ def fte(
     save_error_dists(pix_errors, OUT_DIR)
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, scene_fpath, start_frame, directions=True, intermode=intermode, save_videos=video)
+    out_fpath = app.save_fte(states, mode, OUT_DIR, camera_params, start_frame, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')

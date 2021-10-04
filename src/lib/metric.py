@@ -34,7 +34,7 @@ def get_key_angles(positions, markers):
 
 
 def residual_error(points_2d_df, points_3d_dfs, markers, camera_params) -> Dict:
-    k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
+    k_arr, d_arr, r_arr, t_arr, _, _, _ = camera_params
     n_cam = len(k_arr)
     if not isinstance(points_3d_dfs, list):
         points_3d_dfs = [points_3d_dfs] * n_cam
