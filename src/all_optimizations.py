@@ -63,8 +63,6 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, args.dlc)
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -140,23 +138,25 @@ if __name__ == '__main__':
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
 
+    print('========== DLC ==========\n')
+    _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
     # core.sba(DATA_DIR, points_2d_df, start_frame, end_frame, args.dlc_thresh, camera_params, scene_fpath, params=vid_params, plot=args.plot)
     # print('========== EKF ==========\n')
     # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    print('========== FTE ==========\n')
-    OUT_DIR = os.path.join(DATA_DIR, 'fte')
-    pkl_fpath = core.fte(
-        OUT_DIR,
-        points_2d_df, mode, camera_params,
-        start_frame, end_frame, args.dlc_thresh,
-        scene_fpath,
-        params=vid_params,
-        shutter_delay=True,         # True/False
-        shutter_delay_mode='const', # const/variable
-        interpolation_mode='vel',   # pos/vel/acc
-        video=True,
-        plot=args.plot
-    )
+    # print('========== FTE ==========\n')
+    # OUT_DIR = os.path.join(DATA_DIR, 'fte')
+    # pkl_fpath = core.fte(
+    #     OUT_DIR,
+    #     points_2d_df, mode, camera_params,
+    #     start_frame, end_frame, args.dlc_thresh,
+    #     scene_fpath,
+    #     params=vid_params,
+    #     shutter_delay=True,         # True/False
+    #     shutter_delay_mode='const', # const/variable
+    #     interpolation_mode='vel',   # pos/vel/acc
+    #     video=True,
+    #     plot=args.plot
+    # )
