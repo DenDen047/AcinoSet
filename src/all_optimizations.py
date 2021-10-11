@@ -63,8 +63,8 @@ if __name__ == '__main__':
     # generate labelled videos with DLC measurement data
     DLC_DIR = os.path.join(DATA_DIR, args.dlc)
     assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
-    # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
+    print('========== DLC ==========\n')
+    _ = core.dlc(DATA_DIR, DLC_DIR, args.dlc_thresh, params=vid_params)
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
