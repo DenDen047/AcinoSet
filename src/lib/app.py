@@ -269,18 +269,18 @@ def save_tri(positions, out_dir, scene_fpath, markers, start_frame, errors, save
     return out_fpath
 
 
-def save_sba(positions, out_dir, scene_fpath, markers, start_frame, save_videos=True) -> str:
+def save_sba(positions, mode, out_dir, cam_params, start_frame, directions=True, save_videos=True) -> str:
     video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
     nose_pos = positions[:, 0, :]  # (timestep, xyz)
     r_eye_pos = positions[:, 1, :]  # (timestep, xyz)
     l_eye_pos = positions[:, 2, :]  # (timestep, xyz)
-    head_pos = np.mean([r_eye_pos, l_eye_pos], axis=0)
-    gaze_targets = np.array([get_gaze_target_from_positions(head_pos[i,:], nose_pos[i,:], r_eye_pos[i,:]) for i in range(len(head_pos))]) # (timestep, xyz)
-    head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-    gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
-    positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
-    markers += ['coe', 'gaze_target']
+    if directions:
+        head_pos = np.mean([r_eye_pos, l_eye_pos], axis=0)
+        gaze_targets = np.array([get_gaze_target_from_positions(head_pos[i,:], nose_pos[i,:], r_eye_pos[i,:]) for i in range(len(head_pos))]) # (timestep, xyz)
+        head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
+        gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
+        positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
 
     out_fpath = os.path.join(out_dir, 'sba.pickle')
     utils.save_optimised_cheetah(
@@ -288,7 +288,8 @@ def save_sba(positions, out_dir, scene_fpath, markers, start_frame, save_videos=
         extra_data=dict(start_frame=start_frame)
     )
     position3d_arr = [positions] * len(video_fpaths)
-    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
+    bodyparts = get_markers(mode, directions=directions)
+    point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
 
     if save_videos:
         create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=True)

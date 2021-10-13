@@ -19,12 +19,11 @@ from pyomo.opt import SolverFactory
 
 from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
-from lib.misc import get_markers
 
 from .metrics import save_error_dists
 
 
-def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_params, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
+def sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
     OUT_DIR = os.path.join(DATA_DIR, 'sba')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'sba.log'))
@@ -34,12 +33,18 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
     params['dlc_thresh'] = dlc_thresh
+    params['scene_fpath'] = scene_fpath
+    params['markers'] = dict(zip(markers, range(len(markers))))
+    params['skeletons'] = misc.get_skeleton(mode)
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
 
     # get 3D points
     points_2d_df = points_2d_df.query(f'likelihood > {dlc_thresh}')
     points_2d_df = points_2d_df[points_2d_df['frame'].between(start_frame, end_frame)]
+    markers = misc.get_markers(mode)
+    points_2d_df = points_2d_df[points_2d_df['marker'].isin(markers)]
+    # SBA
     points_3d_df, residuals = app.sba_points_fisheye(scene_fpath, points_2d_df)
 
     app.stop_logging()
@@ -65,6 +70,6 @@ def sba(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame)-start_frame, i] = pt_3d
 
-    out_fpath = app.save_sba(positions, OUT_DIR, scene_fpath, markers, start_frame)
+    out_fpath = app.save_sba(positions, mode, OUT_DIR, camera_params, start_frame)
 
     return out_fpath
