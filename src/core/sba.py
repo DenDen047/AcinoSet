@@ -23,11 +23,11 @@ from lib.calib import project_points_fisheye, triangulate_points_fisheye
 from .metrics import save_error_dists
 
 
-def sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False) -> str:
+def sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params: Dict = {}, plot: bool = False, directions: bool = False) -> str:
     OUT_DIR = os.path.join(DATA_DIR, 'sba')
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'sba.log'))
-    markers = misc.get_markers()
+    markers = misc.get_markers(mode, directions=directions)
 
     # save reconstruction parameters
     params['start_frame'] = start_frame
@@ -70,6 +70,6 @@ def sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc
         for frame, *pt_3d in marker_pts:
             positions[int(frame)-start_frame, i] = pt_3d
 
-    out_fpath = app.save_sba(positions, mode, OUT_DIR, camera_params, start_frame)
+    out_fpath = app.save_sba(positions, mode, OUT_DIR, camera_params, start_frame, directions=directions)
 
     return out_fpath
