@@ -171,6 +171,7 @@ def fte(
         K_arr, D_arr, R_arr, t_arr,
         triangulate_points_fisheye
     )
+    # points_3d_df, _ = app.sba_points_fisheye(scene_fpath, points_2d_df.query(f'likelihood > {dlc_thresh}'))
 
     #===================================================
     #                   Optimisation
@@ -338,8 +339,8 @@ def fte(
         return abs(m.x[n,idx['theta_0']]) <= np.pi / 6
     # neck
     def neck_l_1(m, n):
-        # return (0.2, m.x[n,idx['l_1']], 0.3)
-        return m.x[n,idx['l_1']] == 0.28
+        return (0.2, m.x[n,idx['l_1']], 0.3)
+        # return m.x[n,idx['l_1']] == 0.28
     def neck_phi_1(m, n):
         return abs(m.x[n,idx['phi_1']]) <= np.pi / 6
     def neck_theta_1(m, n):

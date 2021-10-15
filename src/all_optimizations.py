@@ -142,21 +142,21 @@ if __name__ == '__main__':
     # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
-    print('========== SBA ==========\n')
-    core.sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot)
+    # print('========== SBA ==========\n')
+    # core.sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot, directions=True)
     # print('========== EKF ==========\n')
     # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
-    # print('========== FTE ==========\n')
-    # OUT_DIR = os.path.join(DATA_DIR, 'fte')
-    # pkl_fpath = core.fte(
-    #     OUT_DIR,
-    #     points_2d_df, mode, camera_params,
-    #     start_frame, end_frame, args.dlc_thresh,
-    #     scene_fpath,
-    #     params=vid_params,
-    #     shutter_delay=True,         # True/False
-    #     shutter_delay_mode='const', # const/variable
-    #     interpolation_mode='vel',   # pos/vel/acc
-    #     video=True,
-    #     plot=args.plot
-    # )
+    print('========== FTE ==========\n')
+    OUT_DIR = os.path.join(DATA_DIR, 'fte')
+    pkl_fpath = core.fte(
+        OUT_DIR,
+        points_2d_df, mode, camera_params,
+        start_frame, end_frame, args.dlc_thresh,
+        scene_fpath,
+        params=vid_params,
+        shutter_delay=True,         # True/False
+        shutter_delay_mode='const', # const/variable
+        interpolation_mode='vel',   # pos/vel/acc
+        video=True,
+        plot=args.plot
+    )
