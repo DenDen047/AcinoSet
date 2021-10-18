@@ -30,6 +30,19 @@ The following sections document how this was created by the code within this rep
 - You can use the `full_cheetah` model provided in the [DLC Model Zoo](http://modelzoo.deeplabcut.org) to re-create the existing H5 files (or on new videos).
 - Here, we also already provide the videos and H5 outputs of all frames, [here](https://www.dropbox.com/sh/kp5kmatbv5cdjx2/AABfJGb7ktVK_L0lybOLQIbJa?dl=0).
 
+- You can prepare the docker container with the following command:
+```bash
+docker build -f $(pwd)/docker/Dockerfile.deeplabcut -t denden047/deeplabcut . && \
+docker run -it --rm \
+    --gpus 1 \
+    -v $(pwd)/src:/app \
+    -v $(pwd)/configs:/configs \
+    -v $(pwd)/data:/data \
+    -w /app \
+    denden047/deeplabcut \
+    bash
+```
+
 ### Labelling Cheetah Body Positions:
 
 If you want to label more cheetah data, you can also do so within the [DeepLabCut framework](https://github.com/DeepLabCut/DeepLabCut). We provide a conda file for an easy-install, but please see the [repo](https://github.com/DeepLabCut/DeepLabCut) for installation and instructions for use.
@@ -100,13 +113,13 @@ python all_optimizations.py --data_dir 2019_03_09/lily/run --start_frame 70 --en
 
 **NB**: When running the FTE, we recommend that you use the MA86 solver. For details on how to set this up, see [these instructions](https://github.com/African-Robotics-Unit/docs/blob/main/linear-solvers.md).
 
-### Citation 
+### Citation
 
 We ask that if you use our code or data, kindly cite (and note it is accepted to **ICRA 2021**, so please check back for an updated ref):
 
 ```
 @misc{joska2021acinoset,
-      title={AcinoSet: A 3D Pose Estimation Dataset and Baseline Models for Cheetahs in the Wild}, 
+      title={AcinoSet: A 3D Pose Estimation Dataset and Baseline Models for Cheetahs in the Wild},
       author={Daniel Joska and Liam Clark and Naoya Muramatsu and Ricardo Jericevich and Fred Nicolls and Alexander Mathis and Mackenzie W. Mathis and Amir Patel},
       year={2021},
       eprint={2103.13282},
