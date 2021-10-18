@@ -36,7 +36,7 @@ plt.style.use(os.path.join('/configs', 'mechatronics_style.yaml'))
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
     parser.add_argument('--data_dir', type=str, help='The file path to the flick/run to be optimized.')
-    parser.add_argument('--label_dir', type=str, help='The file path to the flick/run for the evaluation.')
+    parser.add_argument('--label_dir', type=str, default=None, help='The file path to the flick/run for the evaluation.')
     parser.add_argument('--dlc', type=str, default='dlc', help='The file path to the flick/run to be optimized.')
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     mode = 'upper_body'
 
     DATA_DIR = os.path.normpath(args.data_dir)
-    LABEL_DIR = os.path.normpath(args.label_dir)
+    LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
 
     # load video info
@@ -93,13 +93,12 @@ if __name__ == '__main__':
     n_cams = len(k_arr)
     camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams)
 
-    # load labelled data
-    label_fpaths = sorted(glob(os.path.join(LABEL_DIR, '*.h5')))
-    points_2d_df = utils.load_dlc_points_as_df(label_fpaths, verbose=False)
-
-
-    # load measurement dataframe (pixels, likelihood)
-    # points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
+    # load labelled/DLC measurement dataframe (pixels, likelihood)
+    if LABEL_DIR is None:   # DLC labels
+        points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
+    else:
+        label_fpaths = sorted(glob(os.path.join(LABEL_DIR, '*.h5')))
+        points_2d_df = utils.load_dlc_points_as_df(label_fpaths, verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
