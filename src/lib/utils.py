@@ -114,7 +114,8 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
                     tuples.append(_t)
             columns = pd.MultiIndex.from_tuples(tuples, names=index_names)
             df = df.reindex(columns=columns)
-            df = df.rename(index=lambda s: int(s[-7:-4]))
+            if isinstance(df.index.dtype, str):
+                df = df.rename(index=lambda s: int(s[-7:-4]))
 
         dlc_df = df
         dlc_df = dlc_df.droplevel([0], axis=1).swaplevel(0,1,axis=1).T.unstack().T.reset_index().rename({'level_0':'frame'}, axis=1)

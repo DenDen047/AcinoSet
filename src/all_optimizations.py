@@ -48,7 +48,7 @@ if __name__ == '__main__':
     mode = 'upper_body'
 
     DATA_DIR = os.path.normpath(args.data_dir)
-    LABEL_DIRS = [os.path.normpath(args.label_dir) + str(i) for i in range(1,7)]
+    LABEL_DIR = os.path.normpath(args.label_dir)
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
 
     # load video info
@@ -94,17 +94,12 @@ if __name__ == '__main__':
     camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams)
 
     # load labelled data
-    for label_dir in LABEL_DIRS:
-        fpath = os.path.join(label_dir, 'CollectedData_UCT.h5')
-        df = pd.read_hdf(fpath)
-        print(df)
-        sys.exit(1)
+    label_fpaths = sorted(glob(os.path.join(LABEL_DIR, '*.h5')))
+    points_2d_df = utils.load_dlc_points_as_df(label_fpaths, verbose=False)
 
 
     # load measurement dataframe (pixels, likelihood)
-    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
-    print(points_2d_df)
-    sys.exit(1)
+    # points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
     filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
