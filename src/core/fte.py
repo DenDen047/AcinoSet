@@ -313,9 +313,9 @@ def fte(
 
     def shutter_delay_constraint(m, n, c):
         if sd_mode == 'const':
-            return (-m.Ts, m.shutter_delay[c], m.Ts)
+            return (-m.Ts*5, m.shutter_delay[c], m.Ts*5)
         if sd_mode == 'variable':
-            return (-m.Ts, m.shutter_delay[n, c], m.Ts)
+            return (-m.Ts*5, m.shutter_delay[n, c], m.Ts*5)
 
     if sd:
         m.shutter_base_constraint = pyo.Constraint(m.N, rule=shutter_base_constraint)
@@ -457,9 +457,9 @@ def fte(
                 y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau
                 z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
             elif sd and intermode=='acc':
-                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*(tau**2)
-                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*(tau**2)
-                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*(tau**2)
+                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*tau*abs(tau)
+                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*tau*abs(tau)
+                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*tau*abs(tau)
 
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 

@@ -143,6 +143,7 @@ if __name__ == '__main__':
         start_frame = args.start_frame - 1  # 0 based indexing
         end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
     assert len(k_arr) == points_2d_df['camera'].nunique()
+    assert start_frame != end_frame
 
     # print('========== DLC ==========\n')
     # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
@@ -161,8 +162,8 @@ if __name__ == '__main__':
         scene_fpath,
         params=vid_params,
         shutter_delay=True,         # True/False
-        shutter_delay_mode='const', # const/variable
-        interpolation_mode='vel',   # pos/vel/acc
+        shutter_delay_mode='variable', # const/variable
+        interpolation_mode='acc',   # pos/vel/acc
         video=True,
         plot=args.plot
     )
