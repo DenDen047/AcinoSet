@@ -36,19 +36,16 @@ plt.style.use(os.path.join('/configs', 'mechatronics_style.yaml'))
 if __name__ == '__main__':
     parser = ArgumentParser(description='All Optimizations')
     parser.add_argument('--data_dir', type=str, help='The file path to the flick/run to be optimized.')
-    parser.add_argument('--label_dir', type=str, default=None, help='The file path to the flick/run for the evaluation.')
     parser.add_argument('--dlc', type=str, default='dlc', help='The file path to the flick/run to be optimized.')
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
     parser.add_argument('--ignore_cam', type=int, action='append', required=False, help='The camera index/indices to ignore for the trajectory estimation')
-    parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
     mode = 'upper_body'
 
     DATA_DIR = os.path.normpath(args.data_dir)
-    LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
 
     # load video info
@@ -93,13 +90,9 @@ if __name__ == '__main__':
     n_cams = len(k_arr)
     camera_params = (k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams)
 
-    # load labelled/DLC measurement dataframe (pixels, likelihood)
-    if LABEL_DIR is None:   # DLC labels
-        points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
-    else:
-        label_fpaths = sorted(glob(os.path.join(LABEL_DIR, '*.h5')))
-        points_2d_df = utils.load_dlc_points_as_df(label_fpaths, verbose=False)
-    filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
+    # load DLC measurement dataframe (pixels, likelihood)
+    points_2d_df = utils.load_dlc_points_as_df(dlc_points_fpaths, verbose=False)
+    # filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
     if args.end_frame == -1:
@@ -109,12 +102,12 @@ if __name__ == '__main__':
 
         def frame_condition(i: int, target_markers: List[str]) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
-            num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
+            num_marker = lambda i: len(points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
             return num_marker(i) >= len(target_markers)
 
         def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in key_markers])
-            markers = filtered_points_2d_df.query(
+            markers = points_2d_df.query(
                 f'frame == {i} and ({markers_condition})'
             )['marker']
 
@@ -125,7 +118,7 @@ if __name__ == '__main__':
             return min(counts) >= n_min_cam
 
         start_frame, end_frame = None, None
-        max_idx = int(filtered_points_2d_df['frame'].max() + 1)
+        max_idx = int(points_2d_df['frame'].max() + 1)
         for i in range(max_idx):    # start_frame
             if frame_condition_with_key_markers(i, target_markers, 2):
             # if frame_condition(i, target_markers):
@@ -145,5 +138,32 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
     assert start_frame != end_frame
 
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
+    # plot the transition of likelihoods
+    fig, ax = plt.subplots()
+    cmap = plt.get_cmap("tab10")
+    cam = 1
+    points_2d_df = points_2d_df.query('camera == {}'.format(cam - 1))
+
+    markers = misc.get_markers(mode)
+    for i, marker in enumerate(markers):
+        df = points_2d_df.query('marker == "{}"'.format(marker))
+        print(df['frame'].min(), df['frame'].max())
+        df.plot(
+            x='frame', y='likelihood',
+            # s=3,
+            c=cmap(i),
+            ax=ax, label=marker
+        )
+
+    # show other info
+    ax.axhline(y=args.dlc_thresh, linestyle='--')
+    ax.axvline(x=start_frame)
+    ax.axvline(x=end_frame)
+    ax.set_xlabel('Frame Index')
+    ax.set_ylabel('Likelihood')
+    ax.set_title('{} (camera {})'.format(DLC_DIR, cam))
+    ax.legend()
+
+    # save
+    output_fpath = os.path.join(DLC_DIR, 'frame_likelihood.pdf')
+    fig.savefig(output_fpath)
