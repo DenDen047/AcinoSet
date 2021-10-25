@@ -69,7 +69,8 @@ def dlc(DATA_DIR, OUT_DIR, mode, dlc_thresh, params: Dict = {}, video: bool = Fa
     markers = misc.get_markers(mode)
     likelihood_data = {}
     for i, df in enumerate(point2d_dfs):
-        df = df.loc[:,('DLC_resnet152_CheetahOct14shuffle1_500000')]
+        scorer_label = df.columns.levels[0][0]
+        df = df.loc[:,(scorer_label)]
         likelihoods = df.loc[:, (markers, 'likelihood')]
         likelihoods.columns = likelihoods.columns.droplevel('coords')
         r = {name: col.values for name, col in likelihoods.items()}
