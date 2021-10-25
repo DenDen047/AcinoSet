@@ -34,7 +34,4 @@ RUN apt-get install -y libicu-dev libharfbuzz0b libfontconfig1 libfreetype6
 RUN apt-get install ttf-mscorefonts-installer -y --quiet --quiet
 RUN apt-get install fonts-liberation
 
-# others
-RUN pip install --upgrade tables
-
 WORKDIR /workplace
