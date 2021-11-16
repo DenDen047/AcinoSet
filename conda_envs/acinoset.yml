@@ -28,3 +28,4 @@ dependencies:
     - seaborn
     - opencv-contrib-python
     - scikit-spatial
+    - tables

@@ -107,11 +107,6 @@ if __name__ == '__main__':
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
         target_markers = misc.get_markers(mode)
 
-        def frame_condition(i: int, target_markers: List[str]) -> bool:
-            markers_condition = ' or '.join([f'marker=="{ref}"' for ref in target_markers])
-            num_marker = lambda i: len(filtered_points_2d_df.query(f'frame == {i} and ({markers_condition})')['marker'].unique())
-            return num_marker(i) >= len(target_markers)
-
         def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in key_markers])
             markers = filtered_points_2d_df.query(
@@ -125,19 +120,23 @@ if __name__ == '__main__':
             return min(counts) >= n_min_cam
 
         start_frame, end_frame = None, None
+        start_frames = []
+        end_frames = []
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
-        for i in range(max_idx):    # start_frame
-            if frame_condition_with_key_markers(i, target_markers, 2):
-            # if frame_condition(i, target_markers):
-                start_frame = i
-                break
-        for i in range(max_idx, 0, -1): # end_frame
-            if frame_condition_with_key_markers(i, target_markers, 2):
-            # if frame_condition(i, target_markers):
-                end_frame = i
-                break
-        if start_frame is None or end_frame is None:
+        for marker in target_markers:
+            for i in range(max_idx):    # start_frame
+                if frame_condition_with_key_markers(i, [marker], 2):
+                    start_frames.append(i)
+                    break
+            for i in range(max_idx, 0, -1): # end_frame
+                if frame_condition_with_key_markers(i, [marker], 2):
+                    end_frames.append(i)
+                    break
+        if len(start_frames)==0 or len(end_frames)==0:
             raise('Setting frames failed. Please define start and end frames manually.')
+        else:
+            start_frame = max(start_frames)
+            end_frame = min(end_frames)
     else:
         # User-defined frames
         start_frame = args.start_frame - 1  # 0 based indexing
@@ -145,8 +144,8 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
     assert start_frame != end_frame
 
-    # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
+    print('========== DLC ==========\n')
+    _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
@@ -162,7 +161,7 @@ if __name__ == '__main__':
         scene_fpath,
         params=vid_params,
         shutter_delay=True,         # True/False
-        shutter_delay_mode='variable', # const/variable
+        shutter_delay_mode='const', # const/variable
         interpolation_mode='acc',   # pos/vel/acc
         video=True,
         plot=args.plot
