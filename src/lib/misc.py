@@ -26,6 +26,7 @@ def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
             'spine',
             'r_shoulder',
             'l_shoulder',
+            'lure',
         ]
     elif mode == 'head_stabilize':
         s = [
@@ -96,6 +97,7 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
             'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
             'theta_2',                   # front torso
+            'x_l', 'y_l', 'z_l'          # lure position in inertial
         ]
 
     return dict(zip(states, range(len(states))))
@@ -290,12 +292,15 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         p_l_shoulder    = p_neck_base    + R2_I  @ func([-0.04, 0.08, -0.10])
         p_r_shoulder    = p_neck_base    + R2_I  @ func([-0.04, -0.08, -0.10])
 
+        p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
+
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
             p_neck_base.T,
             p_spine.T,
             p_r_shoulder.T,
             p_l_shoulder.T,
+            p_lure.T,
         ]
     elif mode == 'head_stabilize':
         # rotations
