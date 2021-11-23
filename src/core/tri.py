@@ -28,7 +28,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
     markers = misc.get_markers(mode='all')
-    k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
+    k_arr, d_arr, r_arr, t_arr, _, _, _ = camera_params
 
     # save reconstruction parameters
     params['start_frame'] = start_frame
@@ -59,7 +59,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=True)
+    out_fpath = app.save_tri(positions, OUT_DIR, camera_params, markers, start_frame, pix_errors, save_videos=True)
 
     return out_fpath
 
