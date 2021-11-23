@@ -261,7 +261,6 @@ def save_tri(positions, out_dir, cam_params, markers, start_frame, errors, direc
     )
     # save reprojected 3D points
     position3d_arr = [positions] * len(video_fpaths)
-    # point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, scene_fpath, markers, project_points_fisheye, start_frame)
     bodyparts = get_markers(mode='all', directions=directions)
     point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
 

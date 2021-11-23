@@ -34,6 +34,9 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
     params['dlc_thresh'] = dlc_thresh
+    params['scene_fpath'] = scene_fpath
+    params['markers'] = dict(zip(markers, range(len(markers))))
+    params['skeletons'] = misc.get_skeleton('all')
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
 
