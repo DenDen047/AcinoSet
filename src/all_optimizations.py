@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
+    parser.add_argument('--lure', action='store_true', help='Estimating the lure position.')
     parser.add_argument('--ignore_cam', type=int, action='append', required=False, help='The camera index/indices to ignore for the trajectory estimation')
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
@@ -119,30 +120,56 @@ if __name__ == '__main__':
 
             return min(counts) >= n_min_cam
 
-        start_frame, end_frame = None, None
+        # frames for cheetah
         start_frames = []
         end_frames = []
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
         for marker in target_markers:
             for i in range(max_idx):    # start_frame
-                if frame_condition_with_key_markers(i, [marker], 1):
+                if frame_condition_with_key_markers(i, [marker], 2):
                     start_frames.append(i)
                     break
             for i in range(max_idx, 0, -1): # end_frame
-                if frame_condition_with_key_markers(i, [marker], 1):
+                if frame_condition_with_key_markers(i, [marker], 2):
                     end_frames.append(i)
                     break
         if len(start_frames)==0 or len(end_frames)==0:
             raise('Setting frames failed. Please define start and end frames manually.')
         else:
-            start_frame = max(start_frames)
-            end_frame = min(end_frames)
+            body_start_frame = max(start_frames)
+            body_end_frame = min(end_frames)
+
+        # frames for lure
+        if args.lure:
+            start_frames = []
+            end_frames = []
+            max_idx = int(filtered_points_2d_df['frame'].max() + 1)
+            for i in range(max_idx):    # start_frame
+                if frame_condition_with_key_markers(i, ['lure'], 2):
+                    start_frames.append(i)
+                    break
+            for i in range(max_idx, 0, -1): # end_frame
+                if frame_condition_with_key_markers(i, ['lure'], 2):
+                    end_frames.append(i)
+                    break
+            if len(start_frames)==0 or len(end_frames)==0:
+                raise('Setting frames failed. Please define start and end frames manually.')
+            else:
+                lure_start_frame = max(start_frames)
+                lure_end_frame = min(end_frames)
+        else:
+            lure_start_frame = body_start_frame
+            lure_end_frame = body_end_frame
     else:
         # User-defined frames
-        start_frame = args.start_frame - 1  # 0 based indexing
-        end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
+        body_start_frame = lure_start_frame = args.start_frame - 1  # zero based indexing
+        body_end_frame = lure_end_frame = args.end_frame % num_frames + 1 if args.end_frame == -1 else args.end_frame
+    start_frame = max([body_start_frame, lure_start_frame])
+    end_frame = min([body_end_frame, lure_end_frame])
     assert len(k_arr) == points_2d_df['camera'].nunique()
-    assert start_frame != end_frame
+    assert body_start_frame < body_end_frame
+    assert lure_start_frame < lure_end_frame
+    assert start_frame < end_frame
 
     # print('========== DLC ==========\n')
     # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
@@ -157,9 +184,11 @@ if __name__ == '__main__':
     pkl_fpath = core.fte(
         OUT_DIR,
         points_2d_df, mode, camera_params,
-        start_frame, end_frame, args.dlc_thresh,
+        start_frame, end_frame, body_start_frame, body_end_frame, lure_start_frame, lure_end_frame,
+        args.dlc_thresh,
         scene_fpath,
         params=vid_params,
+        lure=args.lure,
         shutter_delay=True,         # True/False
         shutter_delay_mode='const', # const/variable
         interpolation_mode='acc',   # pos/vel/acc

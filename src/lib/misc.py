@@ -5,7 +5,7 @@ from typing import Dict, List
 from scipy.spatial.transform import Rotation
 
 
-def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
+def get_markers(mode: str = 'default', lure: bool = False, directions: bool = False) -> List[str]:
     if mode == 'default':
         s = [
             'nose', 'r_eye', 'l_eye', 'neck_base',
@@ -31,7 +31,6 @@ def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
     elif mode == 'head_stabilize':
         s = [
             'nose', 'r_eye', 'l_eye', 'neck_base',
-            'lure',
         ]
     elif mode == 'all':
         s = [
@@ -43,6 +42,11 @@ def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
             'l_hip', 'l_back_knee', 'l_back_ankle', 'l_back_paw',
             'lure'
         ]
+    else:
+        s = []
+
+    if lure:
+        s += ['lure']
 
     if directions:
         s += ['coe', 'gaze_target']
@@ -70,7 +74,7 @@ def get_skeleton(mode: str = 'default'):
     return skeletons
 
 
-def get_pose_params(mode: str = 'default') -> Dict[str, List]:
+def get_pose_params(mode: str = 'default', lure: bool = False) -> Dict[str, List]:
     if mode == 'default':
         states = [
             'x_0', 'y_0', 'z_0',         # head position in inertial
@@ -104,8 +108,12 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'x_0', 'y_0', 'z_0',         # head position in inertial
             'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
             'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
-            'x_l', 'y_l', 'z_l'          # lure position in inertial
         ]
+    else:
+        states = []
+
+    if lure:
+        states += ['x_l', 'y_l', 'z_l']
 
     return dict(zip(states, range(len(states))))
 
@@ -141,7 +149,7 @@ def _norm_vector(v):
     return v / np.linalg.norm(v)
 
 
-def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = False, mode: str = 'default', intermode: str = 'pos') -> List:
+def get_all_marker_coords_from_states(states, n_cam: int, mode: str = 'default', lure: bool = False, directions: bool = False, intermode: str = 'pos') -> List:
     shutter_delay = states.get('shutter_delay')
 
     marker_pos_arr = []
@@ -149,23 +157,23 @@ def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = Fal
         if shutter_delay is not None:
             taus = shutter_delay[i]
             marker_pos = np.array([
-                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, tau, directions=directions, mode=mode, intermode=intermode)
+                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, tau, mode=mode, lure=lure, directions=directions, intermode=intermode)
                 for x, dx, ddx, tau in zip(states['x'], states['dx'], states['ddx'], taus)
             ])  # (timestep, marker_idx, xyz)
         else:
-            marker_pos = np.array([get_3d_marker_coords({'x': x}, directions=directions, mode=mode) for x in states['x']]) # (timestep, marker_idx, xyz)
+            marker_pos = np.array([get_3d_marker_coords({'x': x}, mode=mode, lure=lure, directions=directions) for x in states['x']]) # (timestep, marker_idx, xyz)
         marker_pos_arr.append(marker_pos)
 
     return marker_pos_arr
 
 
-def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = False, mode: str = 'default', intermode: str = 'pos'):
+def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', lure: bool = False, directions: bool = False, intermode: str = 'pos'):
     """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
     """
     x = states['x']
     dx = states.get('dx', None)
     ddx = states.get('ddx', None)
-    idx = get_pose_params(mode)
+    idx = get_pose_params(mode, lure=lure)
     func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
 
     if dx is None or intermode not in ['vel', 'acc']:
@@ -331,13 +339,16 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
         # p_neck_base     = p_head         + R1_I  @ func([-0.28, 0, 0])
 
-        p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
-
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
             p_neck_base.T,
-            p_lure.T,
         ]
+    else:
+        result = []
+
+    if lure:
+        p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
+        result += [p_lure.T]
 
     if directions:
         p_gaze_target = p_head + R0_I @ func([3, 0, 0])

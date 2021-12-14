@@ -181,8 +181,8 @@ def plot_scene(data_dir, scene_fname=None, manual_points_only=False, **kwargs):
     plot_extrinsics(scene_fpath, pts_2d, frames, triangulate_points_fisheye, manual_points_only, **kwargs)
 
 
-def plot_cheetah_states(states, smoothed_states=None, mode='default', out_fpath=None, mplstyle_fpath=None):
-    fig, axs = plot_optimized_states(states, smoothed_states, mode, mplstyle_fpath)
+def plot_cheetah_states(states, smoothed_states=None, mode='default', lure=False, out_fpath=None, mplstyle_fpath=None):
+    fig, axs = plot_optimized_states(states, smoothed_states, mode, lure, mplstyle_fpath)
     if out_fpath is not None:
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')
@@ -318,7 +318,7 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     return out_fpath
 
 
-def save_fte(states, mode, out_dir, cam_params, start_frame, intermode='pos', directions=True, save_videos=True) -> str:
+def save_fte(states, mode, out_dir, cam_params, start_frame, intermode='pos', lure=False, directions=True, save_videos=True) -> str:
     video_fpaths = []
     k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
     for name in cam_names:
@@ -329,14 +329,14 @@ def save_fte(states, mode, out_dir, cam_params, start_frame, intermode='pos', di
     n_cam = len(video_fpaths)
 
     # save 3d points
-    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, intermode=intermode)   # state -> 3d marker
+    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, lure=lure, intermode=intermode)   # state -> 3d marker
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     utils.save_optimised_cheetah(position3d_arr, out_fpath, extra_data=dict(**states, start_frame=start_frame))
 
     if save_videos:
         # reproject 3d points into 2d
-        position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, intermode=intermode, directions=directions)   # state -> 3d marker
-        bodyparts = get_markers(mode, directions=directions)
+        position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, lure=lure, intermode=intermode, directions=directions)   # state -> 3d marker
+        bodyparts = get_markers(mode, lure=lure, directions=directions)
         point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
         # save videos
         create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=directions)

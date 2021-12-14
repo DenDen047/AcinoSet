@@ -29,13 +29,108 @@ def fte(
     OUT_DIR,
     points_2d_df,
     mode, camera_params,
-    start_frame, end_frame, dlc_thresh,
+    start_frame, end_frame, body_start_frame, body_end_frame, lure_start_frame, lure_end_frame, dlc_thresh,
     scene_fpath,
     params: Dict = {},
+    lure: bool = False,
     shutter_delay: bool = False, shutter_delay_mode: str = 'const', interpolation_mode: str = 'pos',
     video: bool = True,
     plot: bool = False
 ) -> str:
+    body_state = _fte(
+        OUT_DIR,
+        points_2d_df, mode, camera_params,
+        body_start_frame, body_end_frame,
+        dlc_thresh,
+        scene_fpath,
+        params=params,
+        lure=False,
+        shutter_delay=shutter_delay,
+        shutter_delay_mode=shutter_delay_mode,
+        interpolation_mode=interpolation_mode,
+        video=video,
+        plot=plot
+    )
+    lure_state = _fte(
+        OUT_DIR,
+        points_2d_df, '', camera_params,
+        lure_start_frame, lure_end_frame,
+        dlc_thresh,
+        scene_fpath,
+        params=params,
+        lure=True,
+        shutter_delay=shutter_delay,
+        shutter_delay_mode=shutter_delay_mode,
+        interpolation_mode=interpolation_mode,
+        video=video,
+        plot=plot
+    )
+
+    # reshape with start and end frame
+    state = {}
+    bs = start_frame - body_start_frame
+    be = len(body_state['x']) - (body_end_frame - end_frame)
+    ls = start_frame - lure_start_frame
+    le = len(lure_state['x']) - (lure_end_frame - end_frame)
+    for i in ['x', 'dx', 'ddx']:
+        state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
+    state['shutter_delay'] = body_state['shutter_delay'][bs:be, :]
+
+    print(state['x'].shape)
+    print(state['dx'].shape)
+    print(state['ddx'].shape)
+    print(state['shutter_delay'].shape)
+
+    # ========= SAVE FTE RESULTS ========
+    K_arr, D_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
+    intermode = interpolation_mode
+    markers = misc.get_markers(mode=mode, lure=lure)
+
+    # calculate residual error
+    positions_3ds = misc.get_all_marker_coords_from_states(state, n_cams, mode=mode, lure=lure, directions=True, intermode=intermode)
+    points_3d_dfs = []
+    for positions_3d in positions_3ds:
+        frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
+        n_frames = len(frames)
+        points_3d = []
+        for i, m in enumerate(markers):
+            _pt3d = np.squeeze(positions_3d[:, i, :])
+            marker_arr = np.array([m] * n_frames).reshape((-1, 1))
+            _pt3d = np.hstack((frames, marker_arr, _pt3d))
+            points_3d.append(_pt3d)
+        points_3d_df = pd.DataFrame(
+            np.vstack(points_3d),
+            columns=['frame', 'marker', 'x', 'y', 'z'],
+        ).astype({'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'})
+        points_3d_dfs.append(points_3d_df)
+    pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
+    state['reprj_errors'] = pix_errors
+    save_error_dists(pix_errors, OUT_DIR)
+
+    # save pkl/mat and video files
+    out_fpath = app.save_fte(state, mode, OUT_DIR, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
+
+    # plot cheetah state
+    fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
+    app.plot_cheetah_states(state['x'], mode=mode, lure=lure, out_fpath=fig_fpath)
+    if shutter_delay:
+        fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
+        app.plot_shutter_delay(state['shutter_delay'], out_fpath=fig_fpath)
+
+    return out_fpath
+
+def _fte(
+    OUT_DIR,
+    points_2d_df,
+    mode, camera_params,
+    start_frame, end_frame, dlc_thresh,
+    scene_fpath,
+    params: Dict = {},
+    lure: bool = False,
+    shutter_delay: bool = False, shutter_delay_mode: str = 'const', interpolation_mode: str = 'pos',
+    video: bool = True,
+    plot: bool = False
+) -> Dict:
     # === INITIAL VARIABLES ===
     # options
     sd = shutter_delay
@@ -70,9 +165,9 @@ def fte(
         plt.show(block=True)
 
     # symbolic vars
-    idx       = misc.get_pose_params(mode=mode)
+    idx       = misc.get_pose_params(mode=mode, lure=lure)
     sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, theta_0, psi_0]
-    positions = misc.get_3d_marker_coords({'x': sym_list}, mode=mode)
+    positions = misc.get_3d_marker_coords({'x': sym_list}, lure=lure, mode=mode)
 
     t0 = time()
 
@@ -108,7 +203,7 @@ def fte(
     D_arr = D_arr.reshape((-1,4))
 
     # ========= IMPORT DATA ========
-    markers = misc.get_markers(mode=mode)
+    markers = misc.get_markers(mode=mode, lure=lure)
     R = 3   # measurement standard deviation (default: 5)
     _Q = {  # model parameters variance
         'x_0': 4,
@@ -272,15 +367,18 @@ def fte(
     z_est   = frame_est*z_slope + z_intercept
     psi_est = np.arctan2(y_slope, x_slope)
 
-    print('- idx[x_0]:', idx['x_0'])
     print('- init_x:', init_x.shape)
     print('- x_est:', x_est.shape)
     print('- start_frame:', start_frame)
     print('- end_frame:', end_frame)
-    init_x[:, idx['x_0']]   = x_est[start_frame:end_frame+1]
-    init_x[:, idx['y_0']]   = y_est[start_frame:end_frame+1]
-    init_x[:, idx['z_0']]   = z_est[start_frame:end_frame+1]
-    init_x[:, idx['psi_0']] = psi_est # psi = yaw
+    x0 = 'x_l' if lure else 'x_0'
+    y0 = 'y_l' if lure else 'y_0'
+    z0 = 'z_l' if lure else 'z_0'
+    init_x[:, idx[x0]]   = x_est[start_frame:end_frame+1]
+    init_x[:, idx[y0]]   = y_est[start_frame:end_frame+1]
+    init_x[:, idx[z0]]   = z_est[start_frame:end_frame+1]
+    if not lure:
+        init_x[:, idx['psi_0']] = psi_est   # psi = yaw
 
     for n in m.N:
         for p in m.P:
@@ -453,13 +551,13 @@ def fte(
             elif sd_mode == 'variable':
                 tau = m.shutter_delay[n, c]
             if sd and intermode=='vel':
-                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau
-                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau
-                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau
+                x = m.poses[n,l,1] + m.dx[n,idx[x0]]*tau
+                y = m.poses[n,l,2] + m.dx[n,idx[y0]]*tau
+                z = m.poses[n,l,3] + m.dx[n,idx[z0]]*tau
             elif sd and intermode=='acc':
-                x = m.poses[n,l,1] + m.dx[n,idx['x_0']]*tau + m.ddx[n,idx['x_0']]*tau*abs(tau)
-                y = m.poses[n,l,2] + m.dx[n,idx['y_0']]*tau + m.ddx[n,idx['y_0']]*tau*abs(tau)
-                z = m.poses[n,l,3] + m.dx[n,idx['z_0']]*tau + m.ddx[n,idx['z_0']]*tau*abs(tau)
+                x = m.poses[n,l,1] + m.dx[n,idx[x0]]*tau + m.ddx[n,idx[x0]]*tau*abs(tau)
+                y = m.poses[n,l,2] + m.dx[n,idx[y0]]*tau + m.ddx[n,idx[y0]]*tau*abs(tau)
+                z = m.poses[n,l,3] + m.dx[n,idx[z0]]*tau + m.ddx[n,idx[z0]]*tau*abs(tau)
 
         return proj_funcs[d2-1](x, y, z, K, D, R, t) - m.meas[n, c, l, d2] - m.slack_meas[n, c, l, d2] == 0
 
@@ -507,7 +605,7 @@ def fte(
                             m.meas_err_weight[n, c, l] * m.slack_meas[n, c, l, d2],
                             redesc_a,
                             redesc_b,
-                            redesc_c
+                            redesc_c,
                         )
         return slack_meas_err + slack_model_err
 
@@ -547,46 +645,15 @@ def fte(
         dx.append([m.dx[n, p].value for p in m.P])
         ddx.append([m.ddx[n, p].value for p in m.P])
     states = dict(
-        x=x,
-        dx=dx,
-        ddx=ddx,
+        x=np.array(x),
+        dx=np.array(dx),
+        ddx=np.array(ddx),
     )
     if sd:
         if sd_mode == 'const':
             sd_state = [[m.shutter_delay[c].value for n in m.N] for c in m.C]
         elif sd_mode == 'variable':
             sd_state = [[m.shutter_delay[n,c].value for n in m.N] for c in m.C]
-        states['shutter_delay'] = sd_state
+        states['shutter_delay'] = np.array(sd_state)
 
-    # calculate residual error
-    positions_3ds = misc.get_all_marker_coords_from_states(states, n_cams, mode=mode, directions=True, intermode=intermode)
-    points_3d_dfs = []
-    for positions_3d in positions_3ds:
-        frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
-        n_frames = len(frames)
-        points_3d = []
-        for i, m in enumerate(markers):
-            _pt3d = np.squeeze(positions_3d[:, i, :])
-            marker_arr = np.array([m] * n_frames).reshape((-1, 1))
-            _pt3d = np.hstack((frames, marker_arr, _pt3d))
-            points_3d.append(_pt3d)
-        points_3d_df = pd.DataFrame(
-            np.vstack(points_3d),
-            columns=['frame', 'marker', 'x', 'y', 'z'],
-        ).astype({'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'})
-        points_3d_dfs.append(points_3d_df)
-    pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
-    states['reprj_errors'] = pix_errors
-    save_error_dists(pix_errors, OUT_DIR)
-
-    # save pkl/mat and video files
-    out_fpath = app.save_fte(states, mode, OUT_DIR, camera_params, start_frame, directions=True, intermode=intermode, save_videos=video)
-
-    # plot cheetah state
-    fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
-    app.plot_cheetah_states(x, mode=mode, out_fpath=fig_fpath)
-    if sd:
-        fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
-        app.plot_shutter_delay(sd_state, out_fpath=fig_fpath)
-
-    return out_fpath
+    return states
