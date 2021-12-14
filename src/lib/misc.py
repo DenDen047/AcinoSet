@@ -31,7 +31,7 @@ def get_markers(mode: str = 'default', directions: bool = False) -> List[str]:
     elif mode == 'head_stabilize':
         s = [
             'nose', 'r_eye', 'l_eye', 'neck_base',
-            'spine'
+            'lure',
         ]
     elif mode == 'all':
         s = [
@@ -91,12 +91,19 @@ def get_pose_params(mode: str = 'default') -> Dict[str, List]:
             'x_0', 'y_0', 'z_0',         # head position in inertial
             'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
         ]
-    elif mode == 'upper_body' or mode == 'head_stabilize':
+    elif mode == 'upper_body':
         states = [
             'x_0', 'y_0', 'z_0',         # head position in inertial
             'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
             'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
             'theta_2',                   # front torso
+            'x_l', 'y_l', 'z_l'          # lure position in inertial
+        ]
+    elif mode == 'head_stabilize':
+        states = [
+            'x_0', 'y_0', 'z_0',         # head position in inertial
+            'phi_0', 'theta_0', 'psi_0', # head rotation in inertial
+            'l_1', 'phi_1', 'theta_1', 'psi_1', # neck
             'x_l', 'y_l', 'z_l'          # lure position in inertial
         ]
 
@@ -308,8 +315,6 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
         R0_I = RI_0.T
         RI_1 = rot_z(x[idx['psi_1']]) @ rot_x(x[idx['phi_1']]) @ rot_y(x[idx['theta_1']]) @ RI_0  # neck
         R1_I = RI_1.T
-        RI_2 = rot_y(x[idx['theta_2']]) @ RI_1     # front torso
-        R2_I = RI_2.T
 
         # positions
         _x = x[idx['x_0']] + dx[idx['x_0']] * tau + np.sign(tau) * ddx[idx['x_0']] * (tau**2)
@@ -325,12 +330,13 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, directions: bool = Fals
 
         p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
         # p_neck_base     = p_head         + R1_I  @ func([-0.28, 0, 0])
-        p_spine         = p_neck_base    + R2_I  @ func([-0.37, 0, 0])
+
+        p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
             p_neck_base.T,
-            p_spine.T,
+            p_lure.T,
         ]
 
     if directions:

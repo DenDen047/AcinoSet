@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'upper_body'
+    mode = 'head_stabilize'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
@@ -125,11 +125,11 @@ if __name__ == '__main__':
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
         for marker in target_markers:
             for i in range(max_idx):    # start_frame
-                if frame_condition_with_key_markers(i, [marker], 2):
+                if frame_condition_with_key_markers(i, [marker], 1):
                     start_frames.append(i)
                     break
             for i in range(max_idx, 0, -1): # end_frame
-                if frame_condition_with_key_markers(i, [marker], 2):
+                if frame_condition_with_key_markers(i, [marker], 1):
                     end_frames.append(i)
                     break
         if len(start_frames)==0 or len(end_frames)==0:
@@ -144,8 +144,8 @@ if __name__ == '__main__':
     assert len(k_arr) == points_2d_df['camera'].nunique()
     assert start_frame != end_frame
 
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
+    # print('========== DLC ==========\n')
+    # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     # print('========== EKF ==========\n')
     # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     print('========== FTE ==========\n')
-    OUT_DIR = os.path.join(DATA_DIR, 'fte')
+    OUT_DIR = os.path.join(DATA_DIR, f'fte_{mode}')
     pkl_fpath = core.fte(
         OUT_DIR,
         points_2d_df, mode, camera_params,
