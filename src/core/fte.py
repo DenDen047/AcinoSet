@@ -76,11 +76,6 @@ def fte(
         state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
     state['shutter_delay'] = body_state['shutter_delay'][bs:be, :]
 
-    print(state['x'].shape)
-    print(state['dx'].shape)
-    print(state['ddx'].shape)
-    print(state['shutter_delay'].shape)
-
     # ========= SAVE FTE RESULTS ========
     K_arr, D_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
     intermode = interpolation_mode
