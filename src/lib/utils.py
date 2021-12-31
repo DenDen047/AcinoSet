@@ -121,6 +121,9 @@ def load_dlc_points_as_df(dlc_df_fpaths, frame_shifts=None, verbose=False):
         dlc_df = dlc_df.droplevel([0], axis=1).swaplevel(0,1,axis=1).T.unstack().T.reset_index().rename({'level_0':'frame'}, axis=1)
         dlc_df.columns.name = ''
 
+        if dlc_df['frame'].dtype != 'int64':
+            dlc_df['frame'] = dlc_df['frame'].apply(lambda s: int(s[-7:-4]))
+
         # frame drift
         if frame_shifts is not None and frame_shifts[i] != 0:
             bodyparts = list(dlc_df['bodyparts'].unique())

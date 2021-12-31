@@ -348,7 +348,7 @@ def plot_marker_3d(pts_3d, frames=None, fitted_pts_3d=None, fig_title='3D points
     plt.show(block=False)
 
 
-def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=None):
+def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplstyle_fpath=None):
     x = np.array(x)
     if smoothed_x is not None:
         smoothed_x = np.array(smoothed_x)
@@ -381,7 +381,7 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', mplstyle_fpath=Non
         ['theta_12'], ['theta_13']
     ]
 
-    idxs = get_pose_params(mode=mode)
+    idxs = get_pose_params(mode=mode, lure=lure)
     titles = []
     label_lists = []
     for title, lbl in zip(_titles, _label_lists):

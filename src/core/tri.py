@@ -28,12 +28,15 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
     OUT_DIR = os.path.join(DATA_DIR, 'tri')
     os.makedirs(OUT_DIR, exist_ok=True)
     markers = misc.get_markers(mode='all')
-    k_arr, d_arr, r_arr, t_arr, _, _ = camera_params
+    k_arr, d_arr, r_arr, t_arr, _, _, _ = camera_params
 
     # save reconstruction parameters
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
     params['dlc_thresh'] = dlc_thresh
+    params['scene_fpath'] = scene_fpath
+    params['markers'] = dict(zip(markers, range(len(markers))))
+    params['skeletons'] = misc.get_skeleton('all')
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
 
@@ -59,7 +62,7 @@ def tri(DATA_DIR, points_2d_df, start_frame, end_frame, dlc_thresh, camera_param
         for frame, *pt_3d in marker_pts:
             positions[int(frame) - start_frame, i] = pt_3d
 
-    out_fpath = app.save_tri(positions, OUT_DIR, scene_fpath, markers, start_frame, pix_errors, save_videos=True)
+    out_fpath = app.save_tri(positions, OUT_DIR, camera_params, markers, start_frame, pix_errors, save_videos=True)
 
     return out_fpath
 
