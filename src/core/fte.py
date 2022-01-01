@@ -140,9 +140,9 @@ def _fte(
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'fte.log'))
     # cost function
-    redesc_a = 3
-    redesc_b = 10
-    redesc_c = 20
+    redesc_a = 7
+    redesc_b = 100
+    redesc_c = 300
     # PLOT OF REDESCENDING, ABSOLUTE AND QUADRATIC COST FUNCTIONS
     # we use a redescending cost to stop outliers affecting the optimisation negatively
     if plot:
