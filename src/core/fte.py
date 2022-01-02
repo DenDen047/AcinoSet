@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import copy
 import numpy as np
 import sympy as sp
 from scipy.spatial import distance
@@ -37,6 +38,50 @@ def fte(
     video: bool = True,
     plot: bool = False
 ) -> str:
+    params['start_frame'] = start_frame
+    params['end_frame'] = end_frame
+    params['body_start_frame'] = body_start_frame
+    params['body_end_frame'] = body_end_frame
+    params['lure_start_frame'] = lure_start_frame
+    params['lure_end_frame'] = lure_end_frame
+    params['redesc_a'] = 3
+    params['redesc_b'] = 10
+    params['redesc_c'] = 20
+    params['R'] = 3
+    params['Q'] = {  # model parameters variance
+        'x_0': 4,
+        'y_0': 7,
+        'z_0': 5,
+        'phi_0': 13,
+        'theta_0': 9,
+        'psi_0': 26,
+        'l_1': 4,
+        'phi_1': 32,
+        'theta_1': 18,
+        'psi_1': 12,
+        'theta_2': 43,
+        'phi_3': 10,
+        'theta_3': 53,
+        'psi_3': 34,
+        'theta_4': 90,
+        'psi_4': 43,
+        'theta_5': 118,
+        'psi_5': 51,
+        'theta_6': 247,
+        'theta_7': 186,
+        'theta_8': 194,
+        'theta_9': 164,
+        'theta_10': 295,
+        'theta_11': 243,
+        'theta_12': 334,
+        'theta_13': 149,
+        'x_l': 4,
+        'y_l': 7,
+        'z_l': 5,
+    }
+    params['dlc_thresh'] = dlc_thresh
+    params['scene_fpath'] = scene_fpath
+
     body_state = _fte(
         OUT_DIR,
         points_2d_df, mode, camera_params,
@@ -65,6 +110,9 @@ def fte(
         video=video,
         plot=plot
     )
+    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
+        json.dump(params, f)
+    pprint(params)
 
     # reshape with start and end frame
     state = {}
@@ -140,24 +188,9 @@ def _fte(
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'fte.log'))
     # cost function
-    redesc_a = 3
-    redesc_b = 10
-    redesc_c = 20
-    # PLOT OF REDESCENDING, ABSOLUTE AND QUADRATIC COST FUNCTIONS
-    # we use a redescending cost to stop outliers affecting the optimisation negatively
-    if plot:
-        r_x = np.arange(-20, 20, 1e-1)
-        r_y1 = [misc.redescending_loss(i, redesc_a, redesc_b, redesc_c) for i in r_x]
-        r_y2 = abs(r_x)
-        r_y3 = r_x ** 2
-        plt.figure()
-        plt.plot(r_x,r_y1, label='Redescending')
-        plt.plot(r_x,r_y2, label='Absolute (linear)')
-        plt.plot(r_x,r_y3, label='Quadratic')
-        ax = plt.gca()
-        ax.set_ylim((-5, 50))
-        ax.legend()
-        plt.show(block=True)
+    redesc_a = params['redesc_a']
+    redesc_b = params['redesc_b']
+    redesc_c = params['redesc_c']
 
     # symbolic vars
     idx       = misc.get_pose_params(mode=mode, lure=lure)
@@ -199,58 +232,31 @@ def _fte(
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode, lure=lure)
-    R = 3   # measurement standard deviation (default: 5)
-    _Q = {  # model parameters variance
-        'x_0': 4,
-        'y_0': 7,
-        'z_0': 5,
-        'phi_0': 13,
-        'theta_0': 9,
-        'psi_0': 26,
-        'l_1': 4,
-        'phi_1': 32,
-        'theta_1': 18,
-        'psi_1': 12,
-        'theta_2': 43,
-        'phi_3': 10,
-        'theta_3': 53,
-        'psi_3': 34,
-        'theta_4': 90,
-        'psi_4': 43,
-        'theta_5': 118,
-        'psi_5': 51,
-        'theta_6': 247,
-        'theta_7': 186,
-        'theta_8': 194,
-        'theta_9': 164,
-        'theta_10': 295,
-        'theta_11': 243,
-        'theta_12': 334,
-        'theta_13': 149,
-        'x_l': 4,
-        'y_l': 7,
-        'z_l': 5,
-    }
-    Q = np.array([_Q[str(s)] for s in sym_list], dtype=np.float64)**2
+    R = params['R'] # measurement standard deviation (default: 5)
+    Q = np.array([params['Q'][str(s)] for s in sym_list], dtype=np.float64)**2
 
     proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
 
     # save parameters
-    params['start_frame'] = start_frame
-    params['end_frame'] = end_frame
-    params['dlc_thresh'] = dlc_thresh
-    params['redesc_a'] = redesc_a
-    params['redesc_b'] = redesc_b
-    params['redesc_c'] = redesc_c
-    params['scene_fpath'] = scene_fpath
-    params['markers'] = dict(zip(markers, range(len(markers))))
-    params['state_indices'] = idx
-    params['skeletons'] = misc.get_skeleton(mode)
-    # params['camera_params'] = camera_params
-    params['R'] = R
-    params['Q'] = _Q
-    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
-        json.dump(params, f)
+    if 'markers' in params.keys():
+        c = max(params['markers'].values()) + 1 if 'markers' in params.keys() else 0
+        new_markers = dict(zip(markers, range(len(markers))))
+        for k, v in new_markers.items():
+            params['markers'][k] = v + c
+    else:
+        params['markers'] = dict(zip(markers, range(len(markers))))
+
+    if 'state_indices' in params.keys():
+        c = max(params['state_indices'].values())
+        for k, v in idx.items():
+            params['state_indices'][k] = v + c
+    else:
+        params['state_indices'] = idx
+
+    if 'skeletons' in params.keys():
+        params['skeletons'] += misc.get_skeleton(mode)
+    else:
+        params['skeletons'] = misc.get_skeleton(mode)
 
     #===================================================
     #                   Load in data
