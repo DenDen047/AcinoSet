@@ -45,9 +45,9 @@ def fte(
     if lure:
         params['lure_start_frame'] = lure_start_frame
         params['lure_end_frame'] = lure_end_frame
-    params['redesc_a'] = 7
-    params['redesc_b'] = 100
-    params['redesc_c'] = 300
+    params['redesc_a'] = 3
+    params['redesc_b'] = 10
+    params['redesc_c'] = 20
     params['R'] = 3
     params['Q'] = {  # model parameters variance
         'x_0': 4,
