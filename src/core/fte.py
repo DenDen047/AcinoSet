@@ -45,9 +45,9 @@ def fte(
     if lure:
         params['lure_start_frame'] = lure_start_frame
         params['lure_end_frame'] = lure_end_frame
-    params['redesc_a'] = 3
-    params['redesc_b'] = 10
-    params['redesc_c'] = 20
+    params['redesc_a'] = 7
+    params['redesc_b'] = 100
+    params['redesc_c'] = 300
     params['R'] = 3
     params['Q'] = {  # model parameters variance
         'x_0': 4,
@@ -192,10 +192,6 @@ def _fte(
     # dirs
     os.makedirs(OUT_DIR, exist_ok=True)
     app.start_logging(os.path.join(OUT_DIR, 'fte.log'))
-    # cost function
-    redesc_a = params['redesc_a']
-    redesc_b = params['redesc_b']
-    redesc_c = params['redesc_c']
 
     # symbolic vars
     idx       = misc.get_pose_params(mode=mode, lure=lure)
@@ -609,9 +605,9 @@ def _fte(
                     for d2 in m.D2:
                         slack_meas_err += misc.redescending_loss(
                             m.meas_err_weight[n, c, l] * m.slack_meas[n, c, l, d2],
-                            redesc_a,
-                            redesc_b,
-                            redesc_c,
+                            params['redesc_a'],
+                            params['redesc_b'],
+                            params['redesc_c'],
                         )
         return slack_meas_err + slack_model_err
 
