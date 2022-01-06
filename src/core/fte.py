@@ -42,8 +42,9 @@ def fte(
     params['end_frame'] = end_frame
     params['body_start_frame'] = body_start_frame
     params['body_end_frame'] = body_end_frame
-    params['lure_start_frame'] = lure_start_frame
-    params['lure_end_frame'] = lure_end_frame
+    if lure:
+        params['lure_start_frame'] = lure_start_frame
+        params['lure_end_frame'] = lure_end_frame
     params['redesc_a'] = 3
     params['redesc_b'] = 10
     params['redesc_c'] = 20
@@ -96,33 +97,37 @@ def fte(
         video=video,
         plot=plot
     )
-    lure_state = _fte(
-        OUT_DIR,
-        points_2d_df, '', camera_params,
-        lure_start_frame, lure_end_frame,
-        dlc_thresh,
-        scene_fpath,
-        params=params,
-        lure=True,
-        shutter_delay=shutter_delay,
-        shutter_delay_mode=shutter_delay_mode,
-        interpolation_mode=interpolation_mode,
-        video=video,
-        plot=plot
-    )
+    if lure:
+        lure_state = _fte(
+            OUT_DIR,
+            points_2d_df, '', camera_params,
+            lure_start_frame, lure_end_frame,
+            dlc_thresh,
+            scene_fpath,
+            params=params,
+            lure=True,
+            shutter_delay=shutter_delay,
+            shutter_delay_mode=shutter_delay_mode,
+            interpolation_mode=interpolation_mode,
+            video=video,
+            plot=plot
+        )
     with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
     pprint(params)
 
     # reshape with start and end frame
-    state = {}
-    bs = start_frame - body_start_frame
-    be = len(body_state['x']) - (body_end_frame - end_frame)
-    ls = start_frame - lure_start_frame
-    le = len(lure_state['x']) - (lure_end_frame - end_frame)
-    for i in ['x', 'dx', 'ddx']:
-        state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
-    state['shutter_delay'] = body_state['shutter_delay'][bs:be, :]
+    if lure:
+        state = {}
+        bs = start_frame - body_start_frame
+        be = len(body_state['x']) - (body_end_frame - end_frame)
+        ls = start_frame - lure_start_frame
+        le = len(lure_state['x']) - (lure_end_frame - end_frame)
+        for i in ['x', 'dx', 'ddx']:
+            state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
+        state['shutter_delay'] = body_state['shutter_delay'][bs:be, :]
+    else:
+        state = body_state
 
     # ========= SAVE FTE RESULTS ========
     K_arr, D_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params

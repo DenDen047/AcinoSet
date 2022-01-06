@@ -180,7 +180,7 @@ if __name__ == '__main__':
     # print('========== EKF ==========\n')
     # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
     print('========== FTE ==========\n')
-    OUT_DIR = os.path.join(DATA_DIR, f'fte_{mode}')
+    OUT_DIR = os.path.join(DATA_DIR, f'fte_{mode}') + ('_lure' if args.lure else '')
     pkl_fpath = core.fte(
         OUT_DIR,
         points_2d_df, mode, camera_params,
