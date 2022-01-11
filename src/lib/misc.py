@@ -14,7 +14,6 @@ def get_markers(mode: str = 'default', lure: bool = False, directions: bool = Fa
             'l_shoulder', 'l_front_knee', 'l_front_ankle', # 'l_front_paw',
             'r_hip', 'r_back_knee', 'r_back_ankle', # 'r_back_paw',
             'l_hip', 'l_back_knee', 'l_back_ankle', # 'l_back_paw',
-            'lure'
         ]   # excludes paws & lure for now!
     elif mode == 'head':
         s = [
@@ -222,7 +221,7 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', 
         p_r_eye         = p_head         + R0_I  @ func([0, -0.03, 0])
         p_nose          = p_head         + R0_I  @ func([0.055, 0, -0.055])
 
-        p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
+        p_neck_base     = p_head         + R1_I  @ func([-x[idx['l_1']], 0, 0])
         p_spine         = p_neck_base    + R2_I  @ func([-0.37, 0, 0])
 
         p_tail_base     = p_spine        + R3_I  @ func([-0.37, 0, 0])
