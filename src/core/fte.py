@@ -240,7 +240,7 @@ def _fte(
 
     # save parameters
     if 'markers' in params.keys():
-        c = max(params['markers'].values()) + 1 if 'markers' in params.keys() else 0
+        c = max(params['markers'].values()) + 1
         new_markers = dict(zip(markers, range(len(markers))))
         for k, v in new_markers.items():
             params['markers'][k] = v + c
@@ -252,7 +252,7 @@ def _fte(
         for k, v in idx.items():
             params['state_indices'][k] = v + c
     else:
-        params['state_indices'] = idx
+        params['state_indices'] = copy.deepcopy(idx)
 
     if 'skeletons' in params.keys():
         params['skeletons'] += misc.get_skeleton(mode)
