@@ -48,7 +48,32 @@ def fte(
     params['redesc_a'] = 3
     params['redesc_b'] = 10
     params['redesc_c'] = 20
-    params['R'] = 3
+    params['R'] = {
+        'nose': 1.2,
+        'l_eye': 1.24,
+        'r_eye': 1.18,
+        'neck_base': 2.08,
+        'spine': 2.04,
+        'tail_base': 2.52,
+        'tail1': 2.73,
+        'tail2': 1.83,
+        'r_shoulder': 3.47,
+        'r_front_knee': 2.75,
+        'r_front_ankle': 2.69,
+        'r_front_paw': 2.24,
+        'l_shoulder': 3.4,
+        'l_front_knee': 2.91,
+        'l_front_ankle': 2.85,
+        'l_front_paw': 2.27,
+        'r_hip': 3.26,
+        'r_back_knee': 2.76,
+        'r_back_ankle': 2.33,
+        'r_back_paw': 2.4,
+        'l_hip': 3.53,
+        'l_back_knee': 2.69,
+        'l_back_ankle': 2.49,
+        'l_back_paw': 2.34,
+    }
     params['Q'] = {  # model parameters variance
         'x_0': 4,
         'y_0': 7,
@@ -233,8 +258,8 @@ def _fte(
 
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode, lure=lure)
-    R = params['R'] # measurement standard deviation (default: 5)
     Q = np.array([params['Q'][str(s)] for s in sym_list], dtype=np.float64)**2
+    R = np.array([params['R'][str(s)] for s in markers], dtype=np.float64)
 
     proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
 
@@ -311,7 +336,7 @@ def _fte(
     def init_meas_weights(m, n, c, l):
         likelihood = get_likelihood_from_df(n + start_frame, c, l)
         if likelihood > dlc_thresh:
-            return 1 / R
+            return 1 / R[l-1]
         else:
             return 0
 
