@@ -247,6 +247,7 @@ def save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bod
 
         xyz_labels = ['x', 'y', 'likelihood'] # same format as DLC
         pdindex = pd.MultiIndex.from_product([bodyparts, xyz_labels], names=['bodyparts', 'coords'])
+        print(bodyparts)
 
         out_fname = os.path.basename(out_dir) if out_fname is None else out_fname
 
