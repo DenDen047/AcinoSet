@@ -33,10 +33,7 @@ def get_markers(mode: str = 'default', lure: bool = False, directions: bool = Fa
         ]
     elif mode == 'sicb2022':
         s = [
-            'nose', 'r_eye', 'l_eye', 'neck_base',
-            'spine',
-            'r_shoulder',
-            'l_shoulder',
+            'nose', 'r_eye', 'l_eye', 'neck_base', 'spine',
         ]   # excludes paws & lure for now!
     elif mode == 'all':
         s = [
@@ -374,14 +371,9 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', 
         p_neck_base     = p_head         + R1_I  @ func([-x[idx['l_1']], 0, 0])
         p_spine         = p_neck_base    + R2_I  @ func([-0.37, 0, 0])
 
-        p_l_shoulder    = p_neck_base    + R2_I  @ func([-0.04, 0.08, -0.10])
-        p_r_shoulder    = p_neck_base    + R2_I  @ func([-0.04, -0.08, -0.10])
-
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
             p_neck_base.T, p_spine.T,
-            p_r_shoulder.T,
-            p_l_shoulder.T,
         ]
     else:
         result = []
