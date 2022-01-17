@@ -461,63 +461,6 @@ def _fte(
 
     m.pose_constraint = pyo.Constraint(m.N, m.L, m.D3, rule=pose_constraint)
 
-    # define these constraint functions in a loop?
-    # head
-    def head_phi_0(m, n):
-        return abs(m.x[n,idx['phi_0']]) <= np.pi / 6
-    def head_theta_0(m, n):
-        return abs(m.x[n,idx['theta_0']]) <= np.pi / 6
-    # neck
-    def neck_l_1(m, n):
-        return (0.2, m.x[n,idx['l_1']], 0.3)
-        # return m.x[n,idx['l_1']] == 0.28
-    def neck_phi_1(m, n):
-        return abs(m.x[n,idx['phi_1']]) <= np.pi / 6
-    def neck_theta_1(m, n):
-        return abs(m.x[n,idx['theta_1']]) <= np.pi / 6
-    def neck_psi_1(m, n):
-        return abs(m.x[n,idx['psi_1']]) <= np.pi / 6
-    # front torso
-    def front_torso_theta_2(m, n):
-        return abs(m.x[n,idx['theta_2']]) <= np.pi / 6
-    # back torso
-    def back_torso_theta_3(m, n):
-        return abs(m.x[n,idx['theta_3']]) <= np.pi / 6
-    def back_torso_phi_3(m, n):
-        return abs(m.x[n,idx['phi_3']]) <= np.pi / 6
-    def back_torso_psi_3(m, n):
-        return abs(m.x[n,idx['psi_3']]) <= np.pi / 6
-    # tail base
-    def tail_base_theta_4(m, n):
-        return abs(m.x[n,idx['theta_4']]) <= np.pi / 1.5
-    def tail_base_psi_4(m, n):
-        return abs(m.x[n,idx['psi_4']]) <= np.pi / 1.5
-    # tail mid
-    def tail_mid_theta_5(m, n):
-        return abs(m.x[n,idx['theta_5']]) <= np.pi / 1.5
-    def tail_mid_psi_5(m, n):
-        return abs(m.x[n,idx['psi_5']]) <= np.pi / 1.5
-    # front left leg
-    def l_shoulder_theta_6(m, n):
-        return abs(m.x[n,idx['theta_6']]) <= np.pi / 2
-    def l_front_knee_theta_7(m, n):
-        return abs(m.x[n,idx['theta_7']] + np.pi/2) <= np.pi / 2
-    # front right leg
-    def r_shoulder_theta_8(m, n):
-        return abs(m.x[n,idx['theta_8']]) <= np.pi / 2
-    def r_front_knee_theta_9(m, n):
-        return abs(m.x[n,idx['theta_9']] + np.pi/2) <= np.pi / 2
-    # back left leg
-    def l_hip_theta_10(m, n):
-        return abs(m.x[n,idx['theta_10']]) <= np.pi / 2
-    def l_back_knee_theta_11(m, n):
-        return abs(m.x[n,idx['theta_11']] - np.pi/2) <= np.pi / 2
-    # back right leg
-    def r_hip_theta_12(m, n):
-        return abs(m.x[n,idx['theta_12']]) <= np.pi / 2
-    def r_back_knee_theta_13(m, n):
-        return abs(m.x[n,idx['theta_13']] - np.pi/2) <= np.pi / 2
-
     if 'phi_0' in markers:
         m.head_phi_0 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["phi_0"]], np.pi/6))
     if 'theta_0' in markers:
