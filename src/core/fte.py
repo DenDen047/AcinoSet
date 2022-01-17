@@ -356,12 +356,12 @@ def _fte(
     m.meas = pyo.Param(m.N, m.C, m.L, m.D2, initialize=init_measurements_df)
 
     # ===== MODEL VARIABLES =====
-    m.x           = pyo.Var(m.N, m.P) # position
-    m.dx          = pyo.Var(m.N, m.P) # velocity
-    m.ddx         = pyo.Var(m.N, m.P) # acceleration
-    m.poses       = pyo.Var(m.N, m.L, m.D3)
-    m.slack_model = pyo.Var(m.N, m.P)
-    m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0)
+    m.x           = pyo.Var(m.N, m.P, domain=pyo.Reals) # position
+    m.dx          = pyo.Var(m.N, m.P, domain=pyo.Reals) # velocity
+    m.ddx         = pyo.Var(m.N, m.P, domain=pyo.Reals) # acceleration
+    m.poses       = pyo.Var(m.N, m.L, m.D3, domain=pyo.Reals)
+    m.slack_model = pyo.Var(m.N, m.P, domain=pyo.Reals)
+    m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, initialize=0.0, domain=pyo.Reals)
     if sd:
         if sd_mode == 'const':
             m.shutter_delay = pyo.Var(m.C, initialize=0.0)
@@ -462,62 +462,62 @@ def _fte(
 
     m.pose_constraint = pyo.Constraint(m.N, m.L, m.D3, rule=pose_constraint)
 
-    if 'phi_0' in markers:
+    if 'phi_0' in pyoidx.keys():
         m.head_phi_0 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["phi_0"]], np.pi/6)) # 0.52
-    if 'theta_0' in markers:
+    if 'theta_0' in pyoidx.keys():
         m.head_theta_0 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["theta_0"]], np.pi/6)) # 0.52
-    if 'l_1' in markers:
+    if 'l_1' in pyoidx.keys():
         m.neck_length = pyo.Constraint(m.N, rule=lambda m,n: (0.2, m.x[n,pyoidx['l_1']], 0.3))
-    if 'phi_1' in markers:
+    if 'phi_1' in pyoidx.keys():
         m.neck_phi_1 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/2, m.x[n,pyoidx["phi_1"]], np.pi/2)) # 1.57
         # m.neck_phi_1 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["phi_1"]], np.pi/6)) # 0.52
-    if 'theta_1' in markers:
+    if 'theta_1' in pyoidx.keys():
         m.neck_theta_1 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["theta_1"]], np.pi/6)) # 0.52
-    if 'psi_1' in markers:
+    if 'psi_1' in pyoidx.keys():
         m.neck_psi_1 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["psi_1"]], np.pi/6)) # 0.52
-    if 'theta_2' in markers:
+    if 'theta_2' in pyoidx.keys():
         m.front_torso_theta_2 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["theta_2"]], np.pi/6)) # 0.52
-    if 'theta_3' in markers:
+    if 'theta_3' in pyoidx.keys():
         m.back_torso_theta_3 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["theta_3"]], np.pi/6))
-    if 'phi_3' in markers:
+    if 'phi_3' in pyoidx.keys():
         m.back_torso_phi_3 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["phi_3"]], np.pi/6))
-    if 'psi_3' in markers:
+    if 'psi_3' in pyoidx.keys():
         m.back_torso_psi_3 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/6, m.x[n,pyoidx["psi_3"]], np.pi/6))
-    if 'theta_4' in markers:
+    if 'theta_4' in pyoidx.keys():
         m.tail_base_theta_4 = pyo.Constraint(m.N, rule=lambda m,n: (-(2/3) * np.pi, m.x[n,pyoidx["theta_4"]], (2/3) * np.pi))
-    if 'psi_4' in markers:
+    if 'psi_4' in pyoidx.keys():
         m.tail_base_psi_4 = pyo.Constraint(m.N, rule=lambda m,n: (-(2/3) * np.pi, m.x[n,pyoidx["psi_4"]], (2/3) * np.pi))
-    if 'theta_5' in markers:
+    if 'theta_5' in pyoidx.keys():
         m.tail_mid_theta_5 = pyo.Constraint(m.N, rule=lambda m,n: (-(2/3) * np.pi, m.x[n,pyoidx["theta_5"]], (2/3) * np.pi))
-    if 'psi_5' in markers:
+    if 'psi_5' in pyoidx.keys():
         m.tail_mid_psi_5 = pyo.Constraint(m.N, rule=lambda m,n: (-(2/3) * np.pi, m.x[n,pyoidx["psi_5"]], (2/3) * np.pi))
-    if 'theta_6' in markers:
+    if 'theta_6' in pyoidx.keys():
         # m.l_shoulder_theta_6 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/2, m.x[n,pyoidx["theta_6"]], np.pi/2))
         m.l_shoulder_theta_6 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_6"]], (3/4) * np.pi))
-    if 'theta_7' in markers:
+    if 'theta_7' in pyoidx.keys():
         m.l_front_knee_theta_7 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi, m.x[n,pyoidx["theta_7"]], 0))
-    if 'theta_8' in markers:
+    if 'theta_8' in pyoidx.keys():
         # m.r_shoulder_theta_8 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/2, m.x[n,pyoidx["theta_8"]], np.pi/2))
         m.r_shoulder_theta_8 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_8"]], (3/4) * np.pi))
-    if 'theta_9' in markers:
+    if 'theta_9' in pyoidx.keys():
         m.r_front_knee_theta_9 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi, m.x[n,pyoidx["theta_9"]], 0))
-    if 'theta_10' in markers:
+    if 'theta_10' in pyoidx.keys():
         # m.l_hip_theta_10 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/2, m.x[n,pyoidx["theta_10"]], np.pi/2))
         m.l_hip_theta_10 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_10"]], (3/4) * np.pi))
-    if 'theta_11' in markers:
+    if 'theta_11' in pyoidx.keys():
         m.l_back_knee_theta_11 = pyo.Constraint(m.N, rule=lambda m,n: (0, m.x[n,pyoidx["theta_11"]], np.pi))
-    if 'theta_12' in markers:
+    if 'theta_12' in pyoidx.keys():
         # m.r_hip_theta_12 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/2, m.x[n,pyoidx["theta_12"]], np.pi/2))
         m.r_hip_theta_12 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_12"]], (3/4) * np.pi))
-    if 'theta_13' in markers:
+    if 'theta_13' in pyoidx.keys():
         m.r_back_knee_theta_13 = pyo.Constraint(m.N, rule=lambda m,n: (0, m.x[n,pyoidx["theta_13"]], np.pi))
-    if 'theta_14' in markers:
+    if 'theta_14' in pyoidx.keys():
         m.l_front_ankle_theta_14 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/4, m.x[n,pyoidx["theta_14"]], (3/4) * np.pi))
-    if 'theta_15' in markers:
+    if 'theta_15' in pyoidx.keys():
         m.r_front_ankle_theta_15 = pyo.Constraint(m.N, rule=lambda m,n: (-np.pi/4, m.x[n,pyoidx["theta_15"]], (3/4) * np.pi))
-    if 'theta_16' in markers:
+    if 'theta_16' in pyoidx.keys():
         m.l_back_ankle_theta_16 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_16"]], 0))
-    if 'theta_17' in markers:
+    if 'theta_17' in pyoidx.keys():
         m.r_back_ankle_theta_17 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_17"]], 0))
 
     # ===== MEASUREMENT CONSTRAINTS =====
