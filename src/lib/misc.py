@@ -231,7 +231,7 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', 
         p_r_eye         = p_head         + R0_I  @ func([0, -0.03, 0])
         p_nose          = p_head         + R0_I  @ func([0.055, 0, -0.055])
 
-        p_neck_base     = p_head         + R1_I  @ func([-x[idx['l_1']], 0, 0])
+        p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
         p_spine         = p_neck_base    + R2_I  @ func([-0.37, 0, 0])
 
         p_tail_base     = p_spine        + R3_I  @ func([-0.37, 0, 0])
@@ -342,8 +342,8 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', 
         p_r_eye = p_head + R0_I @ func([0, -0.038852231676497324, 0])
         p_nose  = p_head + R0_I @ func([0.0571868749393016, 0, -0.0571868749393016])
 
-        p_neck_base     = p_head         + R1_I  @ func([x[idx['l_1']], 0, 0])
-        # p_neck_base     = p_head         + R1_I  @ func([-0.28, 0, 0])
+        p_neck_base     = p_head + R1_I @ func([-x[idx['l_1']], 0, 0])
+        # p_neck_base     = p_head + R1_I  @ func([-0.28, 0, 0])
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
