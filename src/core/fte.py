@@ -31,7 +31,7 @@ def pyo_i(i: int) -> int:
 
 
 def fte(
-    OUT_DIR,
+    out_dir,
     points_2d_df,
     mode, camera_params,
     start_frame, end_frame, body_start_frame, body_end_frame, lure_start_frame, lure_end_frame, dlc_thresh,
@@ -79,6 +79,58 @@ def fte(
         'l_back_paw': 2.34,
         'lure': 3,
     }
+    params['R_pw1'] = {
+        'nose': 2.71,
+        'l_eye': 3.06,
+        'r_eye': 2.99,
+        'neck_base': 4.07,
+        'spine': 5.53,
+        'tail_base': 4.67,
+        'tail1': 6.05,
+        'tail2': 5.6,
+        'r_shoulder': 5.01,
+        'r_front_knee': 5.11,
+        'r_front_ankle': 5.24,
+        'r_front_paw': 4.85,
+        'l_shoulder': 5.18,
+        'l_front_knee': 5.28,
+        'l_front_ankle': 5.5,
+        'l_front_paw': 4.9,
+        'r_hip': 4.7,
+        'r_back_knee': 4.7,
+        'r_back_ankle': 5.21,
+        'r_back_paw': 5.11,
+        'l_hip': 5.1,
+        'l_back_knee': 5.27,
+        'l_back_ankle': 5.75,
+        'l_back_paw': 5.44,
+    }
+    params['R_pw2'] = {
+        'nose': 2.8,
+        'l_eye': 3.24,
+        'r_eye': 3.42,
+        'neck_base': 3.8,
+        'spine': 4.4,
+        'tail_base': 5.43,
+        'tail1': 5.22,
+        'tail2': 7.29,
+        'r_shoulder': 8.19,
+        'r_front_knee': 6.5,
+        'r_front_ankle': 5.9,
+        'r_front_paw': 6.18,
+        'l_shoulder': 8.83,
+        'l_front_knee': 6.52,
+        'l_front_ankle': 6.22,
+        'l_front_paw': 6.34,
+        'r_hip': 6.8,
+        'r_back_knee': 6.12,
+        'r_back_ankle': 5.37,
+        'r_back_paw': 5.98,
+        'l_hip': 7.83,
+        'l_back_knee': 6.44,
+        'l_back_ankle': 6.1,
+        'l_back_paw': 6.38,
+    }
     params['Q'] = {  # model parameters variance
         'x_0': 4,
         'y_0': 7,
@@ -114,7 +166,7 @@ def fte(
     params['scene_fpath'] = scene_fpath
 
     body_state = _fte(
-        OUT_DIR,
+        out_dir,
         points_2d_df, mode, camera_params,
         body_start_frame, body_end_frame,
         dlc_thresh,
@@ -129,7 +181,7 @@ def fte(
     )
     if lure:
         lure_state = _fte(
-            OUT_DIR,
+            out_dir,
             points_2d_df, '', camera_params,
             lure_start_frame, lure_end_frame,
             dlc_thresh,
@@ -142,7 +194,7 @@ def fte(
             video=video,
             plot=plot
         )
-    with open(os.path.join(OUT_DIR, 'reconstruction_params.json'), 'w') as f:
+    with open(os.path.join(out_dir, 'reconstruction_params.json'), 'w') as f:
         json.dump(params, f)
     pprint(params)
 
@@ -160,7 +212,7 @@ def fte(
         state = body_state
 
     # ========= SAVE FTE RESULTS ========
-    K_arr, D_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
+    k_arr, d_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
     intermode = interpolation_mode
     markers = misc.get_markers(mode=mode, lure=lure)
 
@@ -183,22 +235,22 @@ def fte(
         points_3d_dfs.append(points_3d_df)
     pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
     state['reprj_errors'] = pix_errors
-    save_error_dists(pix_errors, OUT_DIR)
+    save_error_dists(pix_errors, out_dir)
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(state, mode, OUT_DIR, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
+    out_fpath = app.save_fte(state, mode, out_dir, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
-    fig_fpath = os.path.join(OUT_DIR, 'fte.pdf')
+    fig_fpath = os.path.join(out_dir, 'fte.pdf')
     app.plot_cheetah_states(state['x'], mode=mode, lure=lure, out_fpath=fig_fpath)
     if shutter_delay:
-        fig_fpath = os.path.join(OUT_DIR, 'shutter_delay.pdf')
+        fig_fpath = os.path.join(out_dir, 'shutter_delay.pdf')
         app.plot_shutter_delay(state['shutter_delay'], out_fpath=fig_fpath)
 
     return out_fpath
 
 def _fte(
-    OUT_DIR,
+    out_dir,
     points_2d_df,
     mode, camera_params,
     start_frame, end_frame, dlc_thresh,
@@ -220,8 +272,8 @@ def _fte(
     else:
         assert intermode == 'pos'
     # dirs
-    os.makedirs(OUT_DIR, exist_ok=True)
-    app.start_logging(os.path.join(OUT_DIR, 'fte.log'))
+    os.makedirs(out_dir, exist_ok=True)
+    app.start_logging(os.path.join(out_dir, 'fte.log'))
 
     # symbolic vars
     idx       = misc.get_pose_params(mode=mode, lure=lure)
@@ -230,23 +282,45 @@ def _fte(
 
     t0 = time()
 
+    # ========= IMPORT CAMERA & SCENE PARAMS ========
+    k_arr, d_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
+    d_arr = d_arr.reshape((-1, 4))
+
+    N  = end_frame - start_frame + 1    # number of timesteps in trajectory
+    Ts = 1.0 / params['vid_fps']
+
+    # Check that we have a valid range of frames - if not perform the entire sequence.
+    assert N > 0
+    # For memory reasons - do not perform optimisation on trajectories larger than 200 points.
+    if N > 200:
+        end_frame = start_frame + 200 - 1
+        N = end_frame - start_frame + 1
+
+    # ========= POSE FUNCTIONS ========
+    func_map = {'sin': pyo.sin, 'cos': pyo.cos, 'ImmutableDenseMatrix': np.array}
+    pose_to_3d = sp.lambdify(sym_list, positions, modules=[func_map])
+    pos_funcs = []
+    for i in range(positions.shape[0]):
+        lamb = sp.lambdify(sym_list, positions[i, :], modules=[func_map])
+        pos_funcs.append(lamb)
+
     # ========= PROJECTION FUNCTIONS ========
     def pt3d_to_2d(x, y, z, K, D, R, t):
         x_2d = x*R[0,0] + y*R[0,1] + z*R[0,2] + t.flatten()[0]
         y_2d = x*R[1,0] + y*R[1,1] + z*R[1,2] + t.flatten()[1]
         z_2d = x*R[2,0] + y*R[2,1] + z*R[2,2] + t.flatten()[2]
         # project onto camera plane
-        a    = x_2d/z_2d
-        b    = y_2d/z_2d
+        a    = x_2d / z_2d
+        b    = y_2d / z_2d
         # fisheye params
         r    = (a**2 + b**2 +1e-12)**0.5
         th   = pyo.atan(r)
         # distortion
         th_D = th * (1 + D[0]*th**2 + D[1]*th**4 + D[2]*th**6 + D[3]*th**8)
-        x_P  = a*th_D/r
-        y_P  = b*th_D/r
-        u    = K[0,0]*x_P + K[0,2]
-        v    = K[1,1]*y_P + K[1,2]
+        x_P = a*th_D / (r + 1e-12)
+        y_P = b*th_D / (r + 1e-12)
+        u = K[0,0]*x_P + K[0,2]
+        v = K[1,1]*y_P + K[1,2]
         return u, v
 
     def pt3d_to_x2d(x, y, z, K, D, R, t):
@@ -257,16 +331,21 @@ def _fte(
         v = pt3d_to_2d(x, y, z, K, D, R, t)[1]
         return v
 
-    # ========= IMPORT CAMERA & SCENE PARAMS ========
-    K_arr, D_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
-    D_arr = D_arr.reshape((-1,4))
-
     # ========= IMPORT DATA ========
     markers = misc.get_markers(mode=mode, lure=lure)
+    proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
     Q = np.array([params['Q'][str(s)] for s in sym_list], dtype=np.float64)**2
     R = np.array([params['R'][str(s)] for s in markers], dtype=np.float64)
-
-    proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
+    R_pw = np.array(
+        [
+            [params['R'][str(s)] for s in markers],
+            [params['R_pw1'][str(s)] for s in markers],
+            [params['R_pw2'][str(s)] for s in markers],
+        ],
+        dtype=np.float64
+    )
+    # Provides some extra uncertainty to the measurements to accomodate for the rigid body body assumption.
+    R_pw *= 1.5
 
     # save parameters
     if 'markers' in params.keys():
@@ -292,13 +371,70 @@ def _fte(
     #===================================================
     #                   Load in data
     #===================================================
-    print('----- Generating pairwise 3D points -----')
+    print('Load H5 2D DLC prediction data')
+    df_paths = sorted(glob(os.path.join(dlc_dir, '*.h5')))
+
     points_3d_df = utils.get_pairwise_3d_points_from_df(
         points_2d_df.query(f'likelihood > {dlc_thresh}'),
-        K_arr, D_arr, R_arr, t_arr,
+        k_arr, d_arr, R_arr, t_arr,
         triangulate_points_fisheye
     )
-    # points_3d_df, _ = app.sba_points_fisheye(scene_fpath, points_2d_df.query(f'likelihood > {dlc_thresh}'))
+
+    # estimate initial points
+    print('Estimate the initial trajectory')
+    # Use the cheetahs spine to estimate the initial trajectory with a 3rd degree spline.
+    frame_est = np.arange(end_frame)
+
+    nose_pts = points_3d_df[points_3d_df['marker'] == 'nose'][['frame', 'x', 'y', 'z']].values
+    nose_pts[:, 1] = nose_pts[:, 1] - 0.055
+    nose_pts[:, 3] = nose_pts[:, 3] + 0.055
+    traj_est_x = UnivariateSpline(nose_pts[:, 0], nose_pts[:, 1])
+    traj_est_y = UnivariateSpline(nose_pts[:, 0], nose_pts[:, 2])
+    traj_est_z = UnivariateSpline(nose_pts[:, 0], nose_pts[:, 3])
+    x_est = np.array(traj_est_x(frame_est))
+    y_est = np.array(traj_est_y(frame_est))
+    z_est = np.array(traj_est_z(frame_est))
+
+    # Calculate the initial yaw.
+    dx_est = np.diff(x_est) / Ts
+    dy_est = np.diff(y_est) / Ts
+    psi_est = np.arctan2(dy_est, dx_est)
+    # Duplicate the last heading estimate as the difference calculation returns N-1.
+    psi_est = np.append(psi_est, [psi_est[-1]])
+
+    # Remove datafames from memory to conserve memory usage.
+    del points_2d_df
+    del filtered_points_2d_df
+    del points_3d_df
+
+    # Obtain base and pairwise measurments.
+    pw_data = {}
+    base_data = {}
+    cam_idx = 0
+    for path in df_paths:
+        # Pairwise correspondence data.
+        h5_filename = os.path.basename(path)
+        pw_data[cam_idx] = utils.load_pickle(
+            os.path.join(dlc_dir + '_pw', f'{h5_filename[:4]}DLC_resnet152_CheetahOct14shuffle4_650000.pickle'))
+        df_temp = pd.read_hdf(os.path.join(dlc_dir, h5_filename))
+        base_data[cam_idx] = list(df_temp.to_numpy())
+        cam_idx += 1
+
+    # There has been a case where some camera view points have less frames than others.
+    # This can cause an issue when using automatic frame selection.
+    # Therefore, ensure that the end frame is within range.
+    min_num_frames = min([len(val) for val in pw_data.values()])
+    if end_frame > min_num_frames:
+        end_frame = min_num_frames
+        N = end_frame - start_frame
+
+    print('Prepare data - End')
+
+    # save parameters
+    with open(os.path.join(out_dir, 'reconstruction_params.json'), 'w') as f:
+        json.dump(dict(start_frame=start_frame+1, end_frame=end_frame, dlc_thresh=dlc_thresh), f)
+
+    print(f'Start frame: {start_frame}, End frame: {end_frame}, Frame rate: {fps}')
 
     #===================================================
     #                   Optimisation
@@ -307,7 +443,6 @@ def _fte(
     m = pyo.ConcreteModel(name='Cheetah from measurements')
 
     # ===== SETS =====
-    N  = end_frame - start_frame + 1    # number of timesteps in trajectory
     P  = len(sym_list)  # number of pose parameters
     L  = len(markers)   # number of dlc labels per frame
     C  = n_cams         # number of cameras
@@ -529,7 +664,7 @@ def _fte(
         # c ... camera
         # l ... DLC label
         # project
-        K, D, R, t = K_arr[c-1], D_arr[c-1], R_arr[c-1], t_arr[c-1]
+        K, D, R, t = k_arr[c-1], d_arr[c-1], R_arr[c-1], t_arr[c-1]
         if intermode=='pos':
             x = m.poses[n,l,1]
             y = m.poses[n,l,2]
