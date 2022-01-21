@@ -56,15 +56,70 @@ def get_markers(mode: str = 'default', lure: bool = False, directions: bool = Fa
 
     return s
 
+def get_dlc_marker_indices():
+    return {
+        'nose': 23,
+        'r_eye': 0,
+        'l_eye': 1,
+        'neck_base': 24,
+        'spine': 6,
+        'tail_base': 22,
+        'tail1': 11,
+        'tail2': 12,
+        'l_shoulder': 13,
+        'l_front_knee': 14,
+        'l_front_ankle': 15,
+        'l_front_paw': 16,
+        'r_shoulder': 2,
+        'r_front_knee': 3,
+        'r_front_ankle': 4,
+        'r_front_paw': 5,
+        'l_hip': 17,
+        'l_back_knee': 18,
+        'l_back_ankle': 19,
+        'l_back_paw': 20,
+        'r_hip': 7,
+        'r_back_knee': 8,
+        'r_back_ankle': 9,
+        'r_back_paw': 10
+    }
+
+def get_pairwise_graph():
+    return {
+        'r_eye': [23, 1],
+        'l_eye': [23, 0],
+        'nose': [0, 1],
+        'neck_base': [6, 23],
+        'spine': [22, 24],
+        'tail_base': [6, 11],
+        'tail1': [6, 22],
+        'tail2': [11, 22],
+        'l_shoulder': [14, 24],
+        'l_front_knee': [13, 15],
+        'l_front_ankle': [13, 14],
+        'l_front_paw': [14, 15],
+        'r_shoulder': [3, 24],
+        'r_front_knee': [2, 4],
+        'r_front_ankle': [2, 3],
+        'r_front_paw': [3, 4],
+        'l_hip': [18, 22],
+        'l_back_knee': [17, 19],
+        'l_back_ankle': [17, 18],
+        'l_back_paw': [18, 19],
+        'r_hip': [8, 22],
+        'r_back_knee': [7, 9],
+        'r_back_ankle': [7, 8],
+        'r_back_paw': [8, 9]
+    }
 
 def get_skeleton(mode: str = 'default'):
     connections = [
         ['nose', 'l_eye'], ['nose', 'r_eye'], ['nose', 'neck_base'], ['l_eye', 'neck_base'], ['r_eye', 'neck_base'],
         ['neck_base', 'spine'], ['spine', 'tail_base'], ['tail_base', 'tail1'], ['tail1', 'tail2'],
-        ['neck_base', 'r_shoulder'], ['r_shoulder', 'r_front_knee'], ['r_front_knee', 'r_front_ankle'], # ['r_front_ankle', 'r_front_paw'],
-        ['neck_base', 'l_shoulder'], ['l_shoulder', 'l_front_knee'], ['l_front_knee', 'l_front_ankle'], # ['l_front_ankle', 'l_front_paw'],
-        ['tail_base', 'r_hip'], ['r_hip', 'r_back_knee'], ['r_back_knee', 'r_back_ankle'], # ['r_back_ankle', 'r_back_paw'],
-        ['tail_base', 'l_hip'], ['l_hip', 'l_back_knee'], ['l_back_knee', 'l_back_ankle'], # ['l_back_ankle', 'l_back_paw']
+        ['neck_base', 'r_shoulder'], ['r_shoulder', 'r_front_knee'], ['r_front_knee', 'r_front_ankle'], ['r_front_ankle', 'r_front_paw'],
+        ['neck_base', 'l_shoulder'], ['l_shoulder', 'l_front_knee'], ['l_front_knee', 'l_front_ankle'], ['l_front_ankle', 'l_front_paw'],
+        ['tail_base', 'r_hip'], ['r_hip', 'r_back_knee'], ['r_back_knee', 'r_back_ankle'], ['r_back_ankle', 'r_back_paw'],
+        ['tail_base', 'l_hip'], ['l_hip', 'l_back_knee'], ['l_back_knee', 'l_back_ankle'], ['l_back_ankle', 'l_back_paw']
     ]   # exludes paws for now!
 
     markers = get_markers(mode)
@@ -126,11 +181,27 @@ def get_pose_params(mode: str = 'default', lure: bool = False) -> Dict[str, List
 
     return dict(zip(states, range(len(states))))
 
+def get_all_marker_coords_from_states(states, n_cam: int) -> List:
+    shutter_delay = states.get("shutter_delay")
 
-def get_gaze_target(x, r=3):
-    func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
+    marker_pos_arr = []
+    for i in range(n_cam):
+        if shutter_delay is not None:
+            tau = shutter_delay[i]
+            marker_pos = np.array(
+                [get_3d_marker_coords(x, dx, ddx, tau) for x, dx, ddx in zip(states['x'], states['dx'], states['ddx'])])
+        else:
+            marker_pos = np.array([get_3d_marker_coords(x) for x in states['x']])
+        marker_pos_arr.append(marker_pos)
+
+    return marker_pos_arr
+
+def get_3d_marker_coords(x, dx=None, ddx=None, tau: float = 0.0):
+    """Returns either a numpy array or a sympy Matrix of the 3D marker coordinates (shape Nx3) for a given state vector x.
+    """
     idx = get_pose_params()
 
+    func = sp.Matrix if isinstance(x[0], sp.Expr) else np.array
     p_head = func([x[idx['x_0']], x[idx['y_0']], x[idx['z_0']]])
     RI_0  = rot_z(x[idx['psi_0']]) @ rot_x(x[idx['phi_0']]) @ rot_y(x[idx['theta_0']])
     R0_I  = RI_0.T
@@ -220,6 +291,14 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', 
         R12_I = RI_12.T
         RI_13 = rot_y(x[idx['theta_13']]) @ RI_12   # r_back_knee
         R13_I = RI_13.T
+        RI_14 = rot_y(x[idx['theta_14']]) @ RI_7  # l_front_ankle
+        R14_I = RI_14.T
+        RI_15 = rot_y(x[idx['theta_15']]) @ RI_9  # r_front_ankle
+        R15_I = RI_15.T
+        RI_16 = rot_y(x[idx['theta_16']]) @ RI_11  # l_back_ankle
+        R16_I = RI_16.T
+        RI_17 = rot_y(x[idx['theta_17']]) @ RI_13  # r_back_ankle
+        R17_I = RI_17.T
 
         # positions
         _x = x[idx['x_0']] + dx[idx['x_0']] * tau + np.sign(tau) * ddx[idx['x_0']] * (tau**2)
@@ -249,19 +328,21 @@ def get_3d_marker_coords(states: Dict, tau: float = 0.0, mode: str = 'default', 
         p_l_hip         = p_tail_base    + R3_I  @ func([0.12, 0.08, -0.06])
         p_l_back_knee   = p_l_hip        + R10_I @ func([0, 0, -0.32])
         p_l_back_ankle  = p_l_back_knee  + R11_I @ func([0, 0, -0.25])
+        p_l_back_paw = p_l_back_ankle + R16_I @ func([0, 0, -0.22])
 
         p_r_hip         = p_tail_base    + R3_I  @ func([0.12, -0.08, -0.06])
         p_r_back_knee   = p_r_hip        + R12_I @ func([0, 0, -0.32])
         p_r_back_ankle  = p_r_back_knee  + R13_I @ func([0, 0, -0.25])
+        p_r_back_paw = p_r_back_ankle + R17_I @ func([0, 0, -0.22])
 
         result = [
             p_nose.T, p_r_eye.T, p_l_eye.T,
             p_neck_base.T, p_spine.T,
             p_tail_base.T, p_tail_mid.T, p_tail_tip.T,
-            p_r_shoulder.T, p_r_front_knee.T, p_r_front_ankle.T,
-            p_l_shoulder.T, p_l_front_knee.T, p_l_front_ankle.T,
-            p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T,
-            p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T,
+            p_r_shoulder.T, p_r_front_knee.T, p_r_front_ankle.T, p_r_front_paw.T,
+            p_l_shoulder.T, p_l_front_knee.T, p_l_front_ankle.T, p_l_front_paw.T,
+            p_r_hip.T, p_r_back_knee.T, p_r_back_ankle.T, p_r_back_paw.T,
+            p_l_hip.T, p_l_back_knee.T, p_l_back_ankle.T, p_l_back_paw.T,
         ]
     elif mode == 'head':
         # rotations

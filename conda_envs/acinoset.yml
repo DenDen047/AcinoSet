@@ -29,3 +29,4 @@ dependencies:
     - opencv-contrib-python
     - scikit-spatial
     - tables
+    - dill

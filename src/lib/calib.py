@@ -135,6 +135,14 @@ def project_points_fisheye(obj_pts, k, d, r, t, shutter_delay_param: Dict = None
     pts =  cv.fisheye.projectPoints(obj_pts_reshaped, r_vec, t, k, d)[0].reshape((-1, 2))
     return pts
 
+def project_board_points(obj_pts, k, d, r, t):
+    obj_pts_reshaped = obj_pts.reshape((-1, 1, 3))
+    ret = []
+    for (r_vec, t_vec) in zip(r, t):
+        ret.append(cv.projectPoints(obj_pts_reshaped, r_vec, t_vec, k, d)[0].reshape((-1, 2)))
+
+    return np.asarray(ret)
+
 
 # ========== ESTIMATION ALGORITHMS ==========
 
