@@ -30,3 +30,5 @@ dependencies:
     - scikit-spatial
     - tables
     - dill
+    - easydict
+    - ruamel.yaml
