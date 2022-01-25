@@ -174,8 +174,10 @@ def get_segment_indices(bodyparts2connect, all_bpts):
 
 def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, colormap, draw_skeleton, skeleton_color):
     """Creating individual frames with labeled body parts and making a video"""
+    bodyparts2plot.append('lure')
     bpts = df.columns.get_level_values('bodyparts')
     all_bpts = bpts.values[::3]
+    print('all_bpts', type(all_bpts), all_bpts)
     if draw_skeleton:
         color_for_skeleton = (np.array(mcolors.to_rgba(skeleton_color))[:3] * 255).astype(np.uint8).tolist()
         # recode the bodyparts2connect into indices for df_x and df_y for speed
@@ -215,7 +217,13 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
                 for ind, num_bp in bpts2color:
                     if not np.isnan(df_xy[:, ind, idx]).any():
                         if (df_likelihood[ind, idx] > pcutoff) or np.isnan(df_likelihood[ind, idx]):
-                            cv.circle(image, tuple(df_xy[:, ind, idx].astype(np.uint16)), dotsize, colors[num_bp], cv.FILLED)
+                            if ind == np.where(all_bpts == 'lure')[0][0]:
+                                c = np.asarray(df_xy[:, ind, idx].astype(np.uint16))
+                                pt1 = tuple(c - 10)
+                                pt2 = tuple(c + 10)
+                                cv.rectangle(image, pt1, pt2, colors[num_bp], 2)
+                            else:
+                                cv.circle(image, tuple(df_xy[:, ind, idx].astype(np.uint16)), dotsize, colors[num_bp], cv.FILLED)
             except KeyError:
                 pass # do nothing to image if frame_idx is not in df
             clip.save_frame(image)
