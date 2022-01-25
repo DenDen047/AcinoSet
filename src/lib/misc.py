@@ -81,7 +81,8 @@ def get_dlc_marker_indices():
         'r_hip': 7,
         'r_back_knee': 8,
         'r_back_ankle': 9,
-        'r_back_paw': 10
+        'r_back_paw': 10,
+        'lure': 21,
     }
 
 def get_pairwise_graph():
@@ -235,6 +236,7 @@ def get_all_marker_coords_from_states(states, n_cam: int, mode: str = 'default',
     marker_pos_arr = []
     for i in range(n_cam):
         if shutter_delay is not None:
+            print(shutter_delay.shape)
             taus = shutter_delay[i]
             marker_pos = np.array([
                 get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, tau, mode=mode, lure=lure, directions=directions, intermode=intermode)

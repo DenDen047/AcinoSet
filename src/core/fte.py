@@ -209,7 +209,7 @@ def fte(
         le = len(lure_state['x']) - (lure_end_frame - end_frame)
         for i in ['x', 'dx', 'ddx']:
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
-        state['shutter_delay'] = body_state['shutter_delay'][bs:be, :]
+        state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
     else:
         state = body_state
 
@@ -335,8 +335,8 @@ def _fte(
     R_pw = np.array(
         [
             [params['R'][str(s)] for s in markers],
-            [params['R_pw1'][str(s)] for s in markers],
-            [params['R_pw2'][str(s)] for s in markers],
+            [params['R_pw1'].get(str(s),1e-6) for s in markers],
+            [params['R_pw2'].get(str(s),1e-6) for s in markers],
         ],
         dtype=np.float64
     )
@@ -691,7 +691,7 @@ def _fte(
     if 'theta_17' in pyoidx.keys():
         m.r_back_ankle_theta_17 = pyo.Constraint(m.N, rule=lambda m,n: (-(3/4) * np.pi, m.x[n,pyoidx["theta_17"]], 0))
 
-    print('Done')
+    print('Done!')
 
     # ======= OBJECTIVE FUNCTION =======
     print('Objective initialisation...')
