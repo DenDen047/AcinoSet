@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'head_stabilize'
+    mode = 'sicb2022'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
@@ -64,14 +64,16 @@ if __name__ == '__main__':
     assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, args.dlc)
-    assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
+    dlc_dir = os.path.join(DATA_DIR, args.dlc)
+    dlc_pw_dir = os.path.join(DATA_DIR, 'dlc_pw')
+    assert os.path.exists(dlc_dir), f'DLC directory not found: {dlc_dir}'
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
     assert res == cam_res
     # load DLC data
-    dlc_points_fpaths = sorted(glob(os.path.join(DLC_DIR, '*.h5')))
+    dlc_points_fpaths = sorted(glob(os.path.join(dlc_dir, '*.h5')))
+    dlc_pw_points_fpaths = sorted(glob(os.path.join(dlc_pw_dir, 'cam*-predictions.pickle')))
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
     m = re.findall(r'cam([0-9]+)', ' '.join(dlc_points_fpaths))
     cam_names = [i for i in m] # 1-6
@@ -172,7 +174,7 @@ if __name__ == '__main__':
     assert start_frame < end_frame
 
     # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
+    # _ = core.dlc(DATA_DIR, dlc_dir, mode, args.dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
@@ -187,7 +189,10 @@ if __name__ == '__main__':
         start_frame, end_frame, body_start_frame, body_end_frame, lure_start_frame, lure_end_frame,
         args.dlc_thresh,
         scene_fpath,
+        dlc_points_fpaths=dlc_points_fpaths,
+        dlc_pw_points_fpaths=dlc_pw_points_fpaths,
         params=vid_params,
+        enable_ppms=True,
         lure=args.lure,
         shutter_delay=True,         # True/False
         shutter_delay_mode='const', # const/variable
