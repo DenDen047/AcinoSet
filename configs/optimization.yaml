@@ -1,0 +1,34 @@
+marker:
+  - lure
+
+skeleton:
+  - ['nose', 'l_eye']
+  - ['nose', 'r_eye']
+  - ['nose', 'neck_base']
+  - ['l_eye', 'neck_base']
+  - ['r_eye', 'neck_base']
+  - ['neck_base', 'spine']
+  - ['spine', 'tail_base']
+  - ['tail_base', 'tail1']
+  - ['tail1', 'tail2']
+  - ['neck_base', 'r_shoulder']
+  - ['r_shoulder', 'r_front_knee']
+  - ['r_front_knee', 'r_front_ankle']
+  - ['r_front_ankle', 'r_front_paw']
+  - ['neck_base', 'l_shoulder']
+  - ['l_shoulder', 'l_front_knee']
+  - ['l_front_knee', 'l_front_ankle']
+  - ['l_front_ankle', 'l_front_paw']
+  - ['tail_base', 'r_hip']
+  - ['r_hip', 'r_back_knee']
+  - ['r_back_knee', 'r_back_ankle']
+  - ['r_back_ankle', 'r_back_paw']
+  - ['tail_base', 'l_hip']
+  - ['l_hip', 'l_back_knee']
+  - ['l_back_knee', 'l_back_ankle']
+  - ['l_back_ankle', 'l_back_paw']
+
+state:
+  - x_l
+  - y_l
+  - z_l

@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import json
+import yaml
 import numpy as np
 import sympy as sp
 from scipy.spatial import distance
@@ -41,18 +42,26 @@ if __name__ == '__main__':
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
+    parser.add_argument('--config', type=str, default='/configs/optimization.yaml', help='The path of a yaml config.')
     parser.add_argument('--lure', action='store_true', help='Estimating the lure position.')
     parser.add_argument('--ignore_cam', type=int, action='append', required=False, help='The camera index/indices to ignore for the trajectory estimation')
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'sicb2022'
+    mode = 'none'
 
     DATA_DIR = os.path.normpath(args.data_dir)
     LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
 
-    # load video info
+    # Load the config
+    with open(args.config) as f:
+        # The FullLoader parameter handles the conversion from YAML
+        # scalar values to Python the dictionary format
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    target_markers = config['marker']
+
+    # Load video info
     res, fps, num_frames, _ = app.get_vid_info(DATA_DIR)    # path to the directory having original videos
     vid_params = {
         'vid_resolution': res,
@@ -108,7 +117,7 @@ if __name__ == '__main__':
     if args.end_frame == -1:
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
-        target_markers = misc.get_markers(mode)
+        target_markers = misc.get_markers(mode, lure=True)
 
         def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in key_markers])
@@ -196,7 +205,7 @@ if __name__ == '__main__':
         lure=args.lure,
         shutter_delay=True,         # True/False
         shutter_delay_mode='const', # const/variable
-        interpolation_mode='acc',   # pos/vel/acc
+        interpolation_mode='vel',   # pos/vel/acc
         video=True,
         plot=args.plot
     )
