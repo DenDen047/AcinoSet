@@ -419,7 +419,7 @@ def plot_marker_3d(pts_3d, frames=None, fitted_pts_3d=None, fig_title='3D points
     plt.show(block=False)
 
 
-def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplstyle_fpath=None):
+def plot_optimized_states(x, idxs, smoothed_x=None, mplstyle_fpath=None):
     x = np.array(x)
     if smoothed_x is not None:
         smoothed_x = np.array(smoothed_x)
@@ -452,7 +452,6 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplsty
         ['theta_12'], ['theta_13']
     ]
 
-    idxs = get_pose_params(mode=mode, lure=lure)
     titles = []
     label_lists = []
     for title, lbl in zip(_titles, _label_lists):
@@ -462,13 +461,20 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplsty
 
     idxs = [[idxs[l] for l in lbl] for lbl in label_lists]
 
-    plt_shape = [len(titles)//2, 2]
+    if len(titles) == 1:
+        plt_shape = [1, 1]
+    else:
+        plt_shape = [len(titles)//2, 2]
     fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
+
 
     for i in range(plt_shape[0]):
         for j in range(plt_shape[1]):
             k = 2*i+j
-            ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
+            if plt_shape[1] > 1:
+                ax = axs[i,j] if plt_shape[0] > 1 else axs[j]
+            else:
+                ax = axs
             ax.set_title(titles[k])
             ax.plot(x[:, idxs[k]])
             lgnd = label_lists[k]
