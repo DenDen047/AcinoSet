@@ -1,7 +1,11 @@
-prefix: hoge
+prefix: jeb   # Journal of Experimental Biology
 dlc_thresh: 0.8
 
 marker:
+  - spine
+  - l_eye
+  - r_eye
+  - nose
   - lure
 
 state:
