@@ -34,18 +34,30 @@ def pyo_i(i: int) -> int:
 def fte(
     out_dir,
     points_2d_df,
-    mode, camera_params,
-    start_frame, end_frame, body_start_frame, body_end_frame, lure_start_frame, lure_end_frame, dlc_thresh,
+    fte_config,
+    camera_params,
+    markers,
+    skeletons,
+    start_frame, end_frame,
+    body_start_frame, body_end_frame,
+    lure_start_frame, lure_end_frame,
+    dlc_thresh,
     scene_fpath,
     dlc_points_fpaths: List[str],
     dlc_pw_points_fpaths: List[str],
     params: Dict = {},
     enable_ppms: bool = False,
-    lure: bool = False,
-    shutter_delay: bool = False, shutter_delay_mode: str = 'const', interpolation_mode: str = 'pos',
     video: bool = True,
     plot: bool = False
 ) -> str:
+    # parameters
+    lure = 'lure' in markers
+    body = not(len(markers) == 1 and lure)
+    shutter_delay_mode = fte_config['shutter_delay']['mode']
+    shutter_delay = shutter_delay_mode != 'off'
+    interpolation_mode = fte_config['shutter_delay']['interpolation']
+    idx = misc.get_pose_params(markers)   # {'x_l': 0, 'y_l': 1, 'z_l': 2}
+
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
     params['body_start_frame'] = body_start_frame
@@ -53,140 +65,41 @@ def fte(
     if lure:
         params['lure_start_frame'] = lure_start_frame
         params['lure_end_frame'] = lure_end_frame
-    params['redesc_a'] = 3
-    params['redesc_b'] = 10
-    params['redesc_c'] = 20
-    params['R'] = {
-        'nose': 1.2,
-        'l_eye': 1.24,
-        'r_eye': 1.18,
-        'neck_base': 2.08,
-        'spine': 2.04,
-        'tail_base': 2.52,
-        'tail1': 2.73,
-        'tail2': 1.83,
-        'r_shoulder': 3.47,
-        'r_front_knee': 2.75,
-        'r_front_ankle': 2.69,
-        'r_front_paw': 2.24,
-        'l_shoulder': 3.4,
-        'l_front_knee': 2.91,
-        'l_front_ankle': 2.85,
-        'l_front_paw': 2.27,
-        'r_hip': 3.26,
-        'r_back_knee': 2.76,
-        'r_back_ankle': 2.33,
-        'r_back_paw': 2.4,
-        'l_hip': 3.53,
-        'l_back_knee': 2.69,
-        'l_back_ankle': 2.49,
-        'l_back_paw': 2.34,
-        'lure': 3,
-    }
-    params['R_pw1'] = {
-        'nose': 2.71,
-        'l_eye': 3.06,
-        'r_eye': 2.99,
-        'neck_base': 4.07,
-        'spine': 5.53,
-        'tail_base': 4.67,
-        'tail1': 6.05,
-        'tail2': 5.6,
-        'r_shoulder': 5.01,
-        'r_front_knee': 5.11,
-        'r_front_ankle': 5.24,
-        'r_front_paw': 4.85,
-        'l_shoulder': 5.18,
-        'l_front_knee': 5.28,
-        'l_front_ankle': 5.5,
-        'l_front_paw': 4.9,
-        'r_hip': 4.7,
-        'r_back_knee': 4.7,
-        'r_back_ankle': 5.21,
-        'r_back_paw': 5.11,
-        'l_hip': 5.1,
-        'l_back_knee': 5.27,
-        'l_back_ankle': 5.75,
-        'l_back_paw': 5.44,
-    }
-    params['R_pw2'] = {
-        'nose': 2.8,
-        'l_eye': 3.24,
-        'r_eye': 3.42,
-        'neck_base': 3.8,
-        'spine': 4.4,
-        'tail_base': 5.43,
-        'tail1': 5.22,
-        'tail2': 7.29,
-        'r_shoulder': 8.19,
-        'r_front_knee': 6.5,
-        'r_front_ankle': 5.9,
-        'r_front_paw': 6.18,
-        'l_shoulder': 8.83,
-        'l_front_knee': 6.52,
-        'l_front_ankle': 6.22,
-        'l_front_paw': 6.34,
-        'r_hip': 6.8,
-        'r_back_knee': 6.12,
-        'r_back_ankle': 5.37,
-        'r_back_paw': 5.98,
-        'l_hip': 7.83,
-        'l_back_knee': 6.44,
-        'l_back_ankle': 6.1,
-        'l_back_paw': 6.38,
-    }
-    params['Q'] = {  # model parameters variance
-        'x_0': 4,
-        'y_0': 7,
-        'z_0': 5,
-        'phi_0': 13,
-        'theta_0': 9,
-        'psi_0': 26,
-        'l_1': 4,
-        'phi_1': 32,
-        'theta_1': 18,
-        'psi_1': 12,
-        'theta_2': 43,
-        'phi_3': 10,
-        'theta_3': 53,
-        'psi_3': 34,
-        'theta_4': 90,
-        'psi_4': 43,
-        'theta_5': 118,
-        'psi_5': 51,
-        'theta_6': 247,
-        'theta_7': 186,
-        'theta_8': 194,
-        'theta_9': 164,
-        'theta_10': 295,
-        'theta_11': 243,
-        'theta_12': 334,
-        'theta_13': 149,
-        'x_l': 4,
-        'y_l': 7,
-        'z_l': 5,
-    }
+    params['redesc_a'] = fte_config['cost_func']['redescending']['a']
+    params['redesc_b'] = fte_config['cost_func']['redescending']['b']
+    params['redesc_c'] = fte_config['cost_func']['redescending']['c']
+    params['R'] = fte_config['R']
+    params['R_pw1'] = fte_config['R_pw1']
+    params['R_pw2'] = fte_config['R_pw2']
+    params['Q'] = fte_config['Q']
     params['dlc_thresh'] = dlc_thresh
     params['scene_fpath'] = scene_fpath
+    params['shutter_delay_mode'] = shutter_delay_mode
+    params['shutter_delay_interpolation'] = interpolation_mode
+    params['skeletons'] = skeletons
+    params['R_scale'] = fte_config['R_scale']
 
-    body_state = _fte(
-        out_dir,
-        dlc_points_fpaths, dlc_pw_points_fpaths,
-        points_2d_df, mode, camera_params,
-        body_start_frame, body_end_frame,
-        dlc_thresh,
-        params=params,
-        enable_ppms=enable_ppms,
-        lure=False,
-        shutter_delay=shutter_delay,
-        shutter_delay_mode=shutter_delay_mode,
-        interpolation_mode=interpolation_mode,
-    )
+    if body:
+        body_state = _fte(
+            out_dir,
+            dlc_points_fpaths, dlc_pw_points_fpaths,
+            points_2d_df, camera_params,
+            body_start_frame, body_end_frame,
+            dlc_thresh,
+            params=params,
+            enable_ppms=enable_ppms,
+            lure=False,
+            shutter_delay=shutter_delay,
+            shutter_delay_mode=shutter_delay_mode,
+            interpolation_mode=interpolation_mode,
+        )
     if lure:
         lure_state = _fte(
             out_dir,
             dlc_points_fpaths, dlc_pw_points_fpaths,
-            points_2d_df, '', camera_params,
+            markers,
+            idx,
+            points_2d_df, camera_params,
             lure_start_frame, lure_end_frame,
             dlc_thresh,
             params=params,
@@ -201,7 +114,7 @@ def fte(
     pprint(params)
 
     # reshape with start and end frame
-    if lure:
+    if body and lure:
         state = {}
         bs = start_frame - body_start_frame
         be = len(body_state['x']) - (body_end_frame - end_frame)
@@ -210,16 +123,18 @@ def fte(
         for i in ['x', 'dx', 'ddx']:
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
         state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
-    else:
+    elif body:
         state = body_state
+    else:
+        state = lure_state
+    state['skeletons'] = skeletons
 
     # ========= SAVE FTE RESULTS ========
     k_arr, d_arr, R_arr, t_arr, cam_res, cam_names, n_cams = camera_params
     intermode = interpolation_mode
-    markers = misc.get_markers(mode=mode, lure=lure)
 
     # calculate residual error
-    positions_3ds = misc.get_all_marker_coords_from_states(state, n_cams, mode=mode, lure=lure, directions=True, intermode=intermode)
+    positions_3ds = misc.get_all_marker_coords_from_states(state, n_cams, directions=True, intermode=intermode)
     points_3d_dfs = []
     for positions_3d in positions_3ds:
         frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))
@@ -240,11 +155,11 @@ def fte(
     save_error_dists(pix_errors, out_dir)
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(state, mode, out_dir, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
+    out_fpath = app.save_fte(state, out_dir, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(out_dir, 'fte.pdf')
-    app.plot_cheetah_states(state['x'], mode=mode, lure=lure, out_fpath=fig_fpath)
+    app.plot_cheetah_states(state['x'], idx=idx, out_fpath=fig_fpath)
     if shutter_delay:
         fig_fpath = os.path.join(out_dir, 'shutter_delay.pdf')
         app.plot_shutter_delay(state['shutter_delay'], out_fpath=fig_fpath)
@@ -254,13 +169,17 @@ def fte(
 def _fte(
     out_dir,
     dlc_points_fpaths, dlc_pw_points_fpaths,
+    markers,
+    idx,
     points_2d_df,
-    mode, camera_params,
+    camera_params,
     start_frame, end_frame, dlc_thresh,
     params: Dict = {},
     enable_ppms: bool = False,
     lure: bool = False,
-    shutter_delay: bool = False, shutter_delay_mode: str = 'const', interpolation_mode: str = 'pos',
+    shutter_delay: bool = False,
+    shutter_delay_mode: str = 'const',
+    interpolation_mode: str = 'pos',
 ) -> Dict:
     # === INITIAL VARIABLES ===
     # options
@@ -277,9 +196,8 @@ def _fte(
     app.start_logging(os.path.join(out_dir, 'fte.log'))
 
     # symbolic vars
-    idx       = misc.get_pose_params(mode=mode, lure=lure)
-    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, theta_0, psi_0]
-    positions = misc.get_3d_marker_coords({'x': sym_list}, lure=lure, mode=mode)
+    sym_list  = sp.symbols(list(idx.keys()))    # [x_l, y_l, z_l]
+    positions = misc.get_3d_marker_coords({'x': sym_list}, idx)
 
     t0 = time()
 
@@ -328,7 +246,6 @@ def _fte(
         return v
 
     # ========= IMPORT DATA ========
-    markers = misc.get_markers(mode=mode, lure=lure)
     proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
     Q = np.array([params['Q'][str(s)] for s in sym_list], dtype=np.float64)**2
     R = np.array([params['R'][str(s)] for s in markers], dtype=np.float64)
@@ -341,7 +258,7 @@ def _fte(
         dtype=np.float64
     )
     # Provides some extra uncertainty to the measurements to accomodate for the rigid body body assumption.
-    R_pw *= 1.5
+    R_pw *= params['R_scale']
 
     # save parameters
     if 'markers' in params.keys():
@@ -358,11 +275,6 @@ def _fte(
             params['state_indices'][k] = v + c
     else:
         params['state_indices'] = copy.deepcopy(idx)
-
-    if 'skeletons' in params.keys():
-        params['skeletons'] += misc.get_skeleton(mode)
-    else:
-        params['skeletons'] = misc.get_skeleton(mode)
 
     #===================================================
     #                   Load in data
@@ -770,6 +682,8 @@ def _fte(
         x=x_optimised,
         dx=dx_optimised,
         ddx=ddx_optimised,
+        marker=markers,
+        idx=idx,
         model_err=model_err,
         model_weight=model_weight,
         meas_err=meas_err,
