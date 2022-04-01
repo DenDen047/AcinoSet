@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'sicb2022'
+    mode = 'none'   # view only lure
 
     DATA_DIR = os.path.normpath(args.data_dir)
     LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         lure=args.lure,
         shutter_delay=True,         # True/False
         shutter_delay_mode='const', # const/variable
-        interpolation_mode='acc',   # pos/vel/acc
+        interpolation_mode='vel',   # pos/vel/acc
         video=True,
         plot=args.plot
     )

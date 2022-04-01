@@ -25,7 +25,6 @@ def get_markers(mode: str = 'default', lure: bool = False, directions: bool = Fa
             'spine',
             'r_shoulder',
             'l_shoulder',
-            'lure',
         ]
     elif mode == 'head_stabilize':
         s = [
@@ -43,7 +42,6 @@ def get_markers(mode: str = 'default', lure: bool = False, directions: bool = Fa
             'l_shoulder', 'l_front_knee', 'l_front_ankle', 'l_front_paw',
             'r_hip', 'r_back_knee', 'r_back_ankle', 'r_back_paw',
             'l_hip', 'l_back_knee', 'l_back_ankle', 'l_back_paw',
-            'lure'
         ]
     else:
         s = []
