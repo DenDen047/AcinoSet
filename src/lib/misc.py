@@ -139,6 +139,12 @@ def get_pose_params(markers: List[str]) -> Dict[str, List]:
     ]
 
     states = set()
+    if any(map(lambda x: x in markers, ['l_eye', 'r_eye', 'nose'])):
+        states.update(['x_0', 'y_0', 'z_0', 'phi_0', 'theta_0', 'psi_0'])
+    if 'neck_base' in markers:
+        states.update(['phi_1', 'theta_1', 'psi_1'])
+    if 'spine' in markers:
+        states.update(['theta_2'])
     if 'lure' in markers:
         states.update(['x_l', 'y_l', 'z_l'])
     states = sorted(list(states))
@@ -177,7 +183,19 @@ def get_3d_marker_coords(states: Dict, idx, tau: float = 0.0, directions: bool =
         result.append(p_nose.T)
         result.append(p_r_eye.T)
         result.append(p_l_eye.T)
-
+    # neck
+    if all(map(idx.__contains__, ('psi_1', 'phi_1', 'theta_1'))):
+        RI_1  = rot_z(x[idx['psi_1']]) @ rot_x(x[idx['phi_1']]) @ rot_y(x[idx['theta_1']]) @ RI_0
+        R1_I  = RI_1.T
+        p_neck_base = p_head + R1_I @ func([-0.28, 0, 0])
+        result.append(p_neck_base.T)
+    # front torso
+    if all(map(idx.__contains__, ('theta_2'))):
+        RI_2  = rot_y(x[idx['theta_2']]) @ RI_1
+        R2_I  = RI_2.T
+        p_spine = p_neck_base + R2_I @ func([-0.37, 0, 0])
+        result.append(p_spine.T)
+    # lure
     if all(map(idx.__contains__, ('x_l', 'y_l', 'z_l'))):
         _x = x[idx['x_l']] + dx[idx['x_l']] * tau + np.sign(tau) * ddx[idx['x_l']] * (tau**2)
         _y = x[idx['y_l']] + dx[idx['y_l']] * tau + np.sign(tau) * ddx[idx['y_l']] * (tau**2)

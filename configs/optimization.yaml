@@ -2,16 +2,12 @@ prefix: jeb   # Journal of Experimental Biology
 dlc_thresh: 0.8
 
 marker:
-  - spine
   - l_eye
   - r_eye
   - nose
+  - neck_base
+  - spine
   - lure
-
-state:
-  - x_l
-  - y_l
-  - z_l
 
 skeleton:
   - ['nose', 'l_eye']

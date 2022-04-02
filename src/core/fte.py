@@ -56,7 +56,6 @@ def fte(
     shutter_delay_mode = fte_config['shutter_delay']['mode']
     shutter_delay = shutter_delay_mode != 'off'
     interpolation_mode = fte_config['shutter_delay']['interpolation']
-    idx = misc.get_pose_params(markers)   # {'x_l': 0, 'y_l': 1, 'z_l': 2}
 
     params['start_frame'] = start_frame
     params['end_frame'] = end_frame
@@ -80,12 +79,16 @@ def fte(
     params['R_scale'] = fte_config['R_scale']
 
     if body:
+        if 'lure' in markers:
+            markers.remove('lure')
+
         body_state = _fte(
             out_dir,
             dlc_points_fpaths, dlc_pw_points_fpaths,
+            markers,
+            misc.get_pose_params(markers),  # {'x_0': 0, 'y_0': 1, 'z_0': 2, ...}
             points_2d_df, camera_params,
-            body_start_frame, body_end_frame,
-            dlc_thresh,
+            body_start_frame, body_end_frame, dlc_thresh,
             params=params,
             enable_ppms=enable_ppms,
             lure=False,
@@ -94,14 +97,14 @@ def fte(
             interpolation_mode=interpolation_mode,
         )
     if lure:
+        markers = ['lure']
         lure_state = _fte(
             out_dir,
             dlc_points_fpaths, dlc_pw_points_fpaths,
             markers,
-            idx,
+            misc.get_pose_params(markers),  # {'x_l': 0, 'y_l': 1, 'z_l': 2}
             points_2d_df, camera_params,
-            lure_start_frame, lure_end_frame,
-            dlc_thresh,
+            lure_start_frame, lure_end_frame, dlc_thresh,
             params=params,
             enable_ppms=False,
             lure=True,
@@ -123,6 +126,9 @@ def fte(
         for i in ['x', 'dx', 'ddx']:
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
         state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
+        # idx
+        state['idx'] = body_state
+        state['idx'].update({k: v+len(body_state) for k,v in lure_state['idx'].items()})
     elif body:
         state = body_state
     else:
@@ -196,7 +202,7 @@ def _fte(
     app.start_logging(os.path.join(out_dir, 'fte.log'))
 
     # symbolic vars
-    sym_list  = sp.symbols(list(idx.keys()))    # [x_l, y_l, z_l]
+    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, theta_0, psi_0]
     positions = misc.get_3d_marker_coords({'x': sym_list}, idx)
 
     t0 = time()
@@ -248,7 +254,6 @@ def _fte(
     # ========= IMPORT DATA ========
     proj_funcs = [pt3d_to_x2d, pt3d_to_y2d]
     Q = np.array([params['Q'][str(s)] for s in sym_list], dtype=np.float64)**2
-    R = np.array([params['R'][str(s)] for s in markers], dtype=np.float64)
     R_pw = np.array(
         [
             [params['R'][str(s)] for s in markers],
@@ -444,9 +449,14 @@ def _fte(
 
     for n in m.N:
         for p in m.P:
-            m.x[n,p].value   = init_x[n-1,p-1]
-            m.dx[n,p].value  = init_dx[n-1,p-1]
-            m.ddx[n,p].value = init_ddx[n-1,p-1]
+            if n < len(init_x): #init using known values
+                m.x[n,p].value = init_x[n-1,p-1]
+                m.dx[n,p].value = init_dx[n-1,p-1]
+                m.ddx[n,p].value = init_ddx[n-1,p-1]
+            else: #init using last known value
+                m.x[n,p].value = init_x[-1,p-1]
+                m.dx[n,p].value = init_dx[-1,p-1]
+                m.ddx[n,p].value = init_ddx[-1,p-1]
         # init pose
         var_list = [m.x[n,p].value for p in m.P]
         for l in m.L:
@@ -628,7 +638,6 @@ def _fte(
         return 1e-3 * (slack_meas_err + slack_model_err)
 
     m.obj = pyo.Objective(rule=obj)
-
     print('Done!')
 
     # run the solver
