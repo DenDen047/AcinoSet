@@ -321,7 +321,6 @@ def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = Fal
     marker_pos_arr = []
     for i in range(n_cam):
         if shutter_delay is not None:
-            print(shutter_delay.shape)
             taus = shutter_delay[i]
             marker_pos = np.array([
                 get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, idx, tau, intermode=intermode)

@@ -190,8 +190,8 @@ def plot_scene(data_dir, scene_fname=None, manual_points_only=False, **kwargs):
     plot_extrinsics(scene_fpath, pts_2d, frames, triangulate_points_fisheye, manual_points_only, **kwargs)
 
 
-def plot_cheetah_states(states, idx, smoothed_states=None, out_fpath=None, mplstyle_fpath=None):
-    fig, axs = plot_optimized_states(states, idx, smoothed_states, mplstyle_fpath)
+def plot_cheetah_states(states, smoothed_states=None, out_fpath=None, mplstyle_fpath=None):
+    fig, axs = plot_optimized_states(states['x'], states['idx'], smoothed_states, mplstyle_fpath)
     if out_fpath is not None:
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')
@@ -344,7 +344,6 @@ def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', lure=Fal
 
     if save_videos:
         # reproject 3d points into 2d
-        position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, intermode=intermode)   # state -> 3d marker
         bodyparts = states['marker']
         point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
         # save videos

@@ -127,8 +127,10 @@ def fte(
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
         state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
         # idx
-        state['idx'] = body_state
-        state['idx'].update({k: v+len(body_state) for k,v in lure_state['idx'].items()})
+        state['idx'] = body_state['idx']
+        state['idx'].update({k: v+len(body_state['idx']) for k,v in lure_state['idx'].items()})
+        # marker
+        state['marker'] = body_state['marker'] + lure_state['marker']
     elif body:
         state = body_state
     else:
@@ -165,7 +167,7 @@ def fte(
 
     # plot cheetah state
     fig_fpath = os.path.join(out_dir, 'fte.pdf')
-    app.plot_cheetah_states(state['x'], idx=idx, out_fpath=fig_fpath)
+    app.plot_cheetah_states(state, out_fpath=fig_fpath)
     if shutter_delay:
         fig_fpath = os.path.join(out_dir, 'shutter_delay.pdf')
         app.plot_shutter_delay(state['shutter_delay'], out_fpath=fig_fpath)
@@ -375,7 +377,7 @@ def _fte(
         # This does ensures that badly predicted points are not considered in the objective function.
         return 1 / R_pw[w - 1][l - 1] if likelihoods[base] > dlc_thresh else 0.0
 
-    m.meas_err_weight  = pyo.Param(
+    m.meas_err_weight = pyo.Param(
         m.N, m.C, m.L, m.W,
         initialize=init_meas_weights,
         mutable=True
