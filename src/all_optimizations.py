@@ -181,32 +181,32 @@ if __name__ == '__main__':
     assert lure_start_frame < lure_end_frame
     assert start_frame < end_frame
 
-    print('========== DLC ==========\n')
-    _ = core.dlc(DATA_DIR, dlc_dir, target_markers, skeletons, dlc_thresh, params=vid_params, video=True)
+    # print('========== DLC ==========\n')
+    # _ = core.dlc(DATA_DIR, dlc_dir, target_markers, skeletons, dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
     # core.sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params=vid_params, plot=args.plot, directions=True)
     # print('========== EKF ==========\n')
     # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params=vid_params)
-    # print('========== FTE ==========\n')
-    # OUT_DIR = os.path.join(DATA_DIR, f'{file_prefix}_fte')
-    # pkl_fpath = core.fte(
-    #     OUT_DIR,
-    #     points_2d_df,
-    #     config['FTE'],
-    #     camera_params,
-    #     target_markers,
-    #     skeletons,
-    #     start_frame, end_frame,
-    #     body_start_frame, body_end_frame,
-    #     lure_start_frame, lure_end_frame,
-    #     dlc_thresh,
-    #     scene_fpath,
-    #     dlc_points_fpaths=dlc_points_fpaths,
-    #     dlc_pw_points_fpaths=dlc_pw_points_fpaths,
-    #     params=vid_params,
-    #     enable_ppms=True,
-    #     video=True,
-    #     plot=args.plot
-    # )
+    print('========== FTE ==========\n')
+    OUT_DIR = os.path.join(DATA_DIR, f'{file_prefix}_fte')
+    pkl_fpath = core.fte(
+        OUT_DIR,
+        points_2d_df,
+        config['FTE'],
+        camera_params,
+        target_markers,
+        skeletons,
+        start_frame, end_frame,
+        body_start_frame, body_end_frame,
+        lure_start_frame, lure_end_frame,
+        dlc_thresh,
+        scene_fpath,
+        dlc_points_fpaths=dlc_points_fpaths,
+        dlc_pw_points_fpaths=dlc_pw_points_fpaths,
+        params=vid_params,
+        enable_ppms=True,
+        video=True,
+        plot=args.plot
+    )

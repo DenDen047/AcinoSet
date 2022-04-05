@@ -1,5 +1,5 @@
 prefix: jeb   # Journal of Experimental Biology
-dlc_thresh: 0.8
+dlc_thresh: 0.5
 
 marker:
   - l_eye
