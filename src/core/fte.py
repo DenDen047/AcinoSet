@@ -132,7 +132,7 @@ def fte(
         state['marker'] = body_state['marker'] + lure_state['marker']
     elif body:
         state = body_state
-    else:
+    elif lure:
         state = lure_state
     state['skeletons'] = skeletons
 
@@ -176,8 +176,7 @@ def fte(
 def _fte(
     out_dir,
     dlc_points_fpaths, dlc_pw_points_fpaths,
-    markers,
-    idx,
+    markers, idx,
     points_2d_df,
     camera_params,
     start_frame, end_frame, dlc_thresh,
@@ -203,7 +202,7 @@ def _fte(
     app.start_logging(os.path.join(out_dir, 'fte.log'))
 
     # symbolic vars
-    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, theta_0, psi_0]
+    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, ...]
     positions = misc.get_3d_marker_coords({'x': sym_list}, idx)
 
     t0 = time()
@@ -450,14 +449,17 @@ def _fte(
 
     for n in m.N:
         for p in m.P:
-            if n < len(init_x): #init using known values
-                m.x[n,p].value = init_x[n-1,p-1]
-                m.dx[n,p].value = init_dx[n-1,p-1]
-                m.ddx[n,p].value = init_ddx[n-1,p-1]
-            else: #init using last known value
-                m.x[n,p].value = init_x[-1,p-1]
-                m.dx[n,p].value = init_dx[-1,p-1]
-                m.ddx[n,p].value = init_ddx[-1,p-1]
+            m.x[n,p].value = init_x[n-1,p-1]
+            m.dx[n,p].value = init_dx[n-1,p-1]
+            m.ddx[n,p].value = init_ddx[n-1,p-1]
+            # if n <= len(init_x): #init using known values
+            #     m.x[n,p].value = init_x[n-1,p-1]
+            #     m.dx[n,p].value = init_dx[n-1,p-1]
+            #     m.ddx[n,p].value = init_ddx[n-1,p-1]
+            # else: #init using last known value
+            #     m.x[n,p].value = init_x[-1,p-1]
+            #     m.dx[n,p].value = init_dx[-1,p-1]
+            #     m.ddx[n,p].value = init_ddx[-1,p-1]
         # init pose
         var_list = [m.x[n,p].value for p in m.P]
         for l in m.L:

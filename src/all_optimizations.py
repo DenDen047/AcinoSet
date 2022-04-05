@@ -42,7 +42,6 @@ if __name__ == '__main__':
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
     parser.add_argument('--config', type=str, default='/configs/optimization.yaml', help='The path of a yaml config.')
-    parser.add_argument('--lure', action='store_true', help='Estimating the lure position.')
     parser.add_argument('--ignore_cam', type=int, action='append', required=False, help='The camera index/indices to ignore for the trajectory estimation')
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
