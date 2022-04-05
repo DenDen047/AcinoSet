@@ -203,7 +203,6 @@ def get_3d_marker_coords(states: Dict, idx, tau: float = 0.0, directions: bool =
         R2_I  = RI_2.T
         p_spine = p_neck_base + R2_I @ func([-0.37, 0, 0])
         result.append(p_spine.T)
-        print('p_spine')
     # lure
     if all(map(idx.__contains__, ['x_l', 'y_l', 'z_l'])):
         _x = x[idx['x_l']] + dx[idx['x_l']] * tau + np.sign(tau) * ddx[idx['x_l']] * (tau**2)
@@ -216,8 +215,6 @@ def get_3d_marker_coords(states: Dict, idx, tau: float = 0.0, directions: bool =
     if directions:
         p_gaze_target = p_head + R0_I @ func([3, 0, 0])
         result += [p_head.T, p_gaze_target.T]
-
-    print(len(result))
 
     # if mode == 'default':
     #     # rotations

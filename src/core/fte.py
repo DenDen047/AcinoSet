@@ -32,7 +32,7 @@ def pyo_i(i: int) -> int:
 
 def fte(
     out_dir,
-    points_2d_df,
+    body_points_2d_df, lure_points_2d_df,
     fte_config,
     camera_params,
     markers,
@@ -42,8 +42,8 @@ def fte(
     lure_start_frame, lure_end_frame,
     dlc_thresh,
     scene_fpath,
-    dlc_points_fpaths: List[str],
-    dlc_pw_points_fpaths: List[str],
+    base_label_fpaths: List[str],
+    dlc_pw_label_fpaths: List[str],
     params: Dict = {},
     enable_ppms: bool = False,
     video: bool = True,
@@ -83,10 +83,10 @@ def fte(
 
         body_state = _fte(
             out_dir,
-            dlc_points_fpaths, dlc_pw_points_fpaths,
+            base_label_fpaths, dlc_pw_label_fpaths,
             markers,
             misc.get_pose_params(markers),  # {'x_0': 0, 'y_0': 1, 'z_0': 2, ...}
-            points_2d_df, camera_params,
+            body_points_2d_df, camera_params,
             body_start_frame, body_end_frame, dlc_thresh,
             params=params,
             enable_ppms=enable_ppms,
@@ -99,10 +99,10 @@ def fte(
         markers = ['lure']
         lure_state = _fte(
             out_dir,
-            dlc_points_fpaths, dlc_pw_points_fpaths,
+            base_label_fpaths, dlc_pw_label_fpaths,
             markers,
             misc.get_pose_params(markers),  # {'x_l': 0, 'y_l': 1, 'z_l': 2}
-            points_2d_df, camera_params,
+            lure_points_2d_df, camera_params,
             lure_start_frame, lure_end_frame, dlc_thresh,
             params=params,
             enable_ppms=False,
@@ -157,9 +157,10 @@ def fte(
             columns=['frame', 'marker', 'x', 'y', 'z'],
         ).astype({'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'})
         points_3d_dfs.append(points_3d_df)
-    pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
-    state['reprj_errors'] = pix_errors
+    pix_errors = metric.residual_error(body_points_2d_df, points_3d_dfs, markers, camera_params)
     save_error_dists(pix_errors, out_dir)
+    state['body_reprj_errors'] = pix_errors
+    state['lure_reprj_errors'] = metric.residual_error(lure_points_2d_df, points_3d_dfs, markers, camera_params)
 
     # save pkl/mat and video files
     out_fpath = app.save_fte(state, out_dir, camera_params, start_frame, directions=True, intermode=intermode, save_videos=video)
@@ -175,7 +176,7 @@ def fte(
 
 def _fte(
     out_dir,
-    dlc_points_fpaths, dlc_pw_points_fpaths,
+    base_label_fpaths, dlc_pw_label_fpaths,
     markers, idx,
     points_2d_df,
     camera_params,
@@ -322,7 +323,7 @@ def _fte(
     pw_data = {}
     base_data = {}
     cam_idx = 0
-    for dlc_path, dlc_pw_path in zip(dlc_points_fpaths, dlc_pw_points_fpaths):
+    for dlc_path, dlc_pw_path in zip(base_label_fpaths, dlc_pw_label_fpaths):
         # Pairwise correspondence data.
         h5_filename = os.path.basename(dlc_path)
         pw_data[cam_idx] = utils.load_pickle(dlc_pw_path)
