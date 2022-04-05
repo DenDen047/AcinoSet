@@ -50,7 +50,7 @@ def detect_start_end_frame(points_2d_df, dlc_thresh: float, mode: str = 'default
     return start_frame, end_frame
 
 
-def dlc(DATA_DIR, OUT_DIR, mode, dlc_thresh, params: Dict = {}, video: bool = False) -> Dict:
+def dlc(DATA_DIR, OUT_DIR, markers, skeletons, dlc_thresh, params: Dict = {}, video: bool = False) -> Dict:
     df_fpaths = sorted(glob(os.path.join(OUT_DIR, 'cam[1-9]*.h5'))) # original vids should be in the parent dir
     video_fpaths = sorted(glob(os.path.join(DATA_DIR, 'cam[1-9].mp4'))) # original vids should be in the parent dir
 
@@ -66,7 +66,6 @@ def dlc(DATA_DIR, OUT_DIR, mode, dlc_thresh, params: Dict = {}, video: bool = Fa
         point2d_dfs.append(df)
 
     # extract likelihoods
-    markers = misc.get_markers(mode)
     likelihood_data = {}
     for i, df in enumerate(point2d_dfs):
         scorer_label = df.columns.levels[0][0]
@@ -86,6 +85,6 @@ def dlc(DATA_DIR, OUT_DIR, mode, dlc_thresh, params: Dict = {}, video: bool = Fa
 
     # video
     if video:
-        app.create_labeled_videos(point2d_dfs, video_fpaths, out_dir=OUT_DIR, draw_skeleton=True, pcutoff=dlc_thresh, lure=False)
+        app.create_labeled_videos(point2d_dfs, markers, skeletons, video_fpaths, out_dir=OUT_DIR, pcutoff=dlc_thresh, draw_skeleton=True)
 
     return params

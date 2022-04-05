@@ -22,7 +22,6 @@ from pyomo.opt import SolverFactory
 
 from lib import misc, utils, app, metric
 from lib.calib import project_points_fisheye, triangulate_points_fisheye
-from lib.misc import get_markers, rot_x, rot_y, rot_z
 
 from .metrics import save_error_dists
 
