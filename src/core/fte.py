@@ -393,7 +393,6 @@ def _fte(
         if w < 2:
             base = index_dict[marker]
             val = base_data[cam_idx][(n - 1) + start_frame][d2 - 1::3]
-
             return val[base]
         else:
             try:

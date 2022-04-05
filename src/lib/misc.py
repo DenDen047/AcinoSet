@@ -206,11 +206,11 @@ def get_3d_marker_coords(states: Dict, idx, tau: float = 0.0, directions: bool =
         print('p_spine')
     # lure
     if all(map(idx.__contains__, ['x_l', 'y_l', 'z_l'])):
-        # _x = x[idx['x_l']] + dx[idx['x_l']] * tau + np.sign(tau) * ddx[idx['x_l']] * (tau**2)
-        # _y = x[idx['y_l']] + dx[idx['y_l']] * tau + np.sign(tau) * ddx[idx['y_l']] * (tau**2)
-        # _z = x[idx['z_l']] + dx[idx['z_l']] * tau + np.sign(tau) * ddx[idx['z_l']] * (tau**2)
-        # p_lure = func([_x, _y, _z])
-        p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
+        _x = x[idx['x_l']] + dx[idx['x_l']] * tau + np.sign(tau) * ddx[idx['x_l']] * (tau**2)
+        _y = x[idx['y_l']] + dx[idx['y_l']] * tau + np.sign(tau) * ddx[idx['y_l']] * (tau**2)
+        _z = x[idx['z_l']] + dx[idx['z_l']] * tau + np.sign(tau) * ddx[idx['z_l']] * (tau**2)
+        p_lure = func([_x, _y, _z])
+        # p_lure = func([x[idx['x_l']], x[idx['y_l']], x[idx['z_l']]])
         result.append(p_lure.T)
 
     if directions:
