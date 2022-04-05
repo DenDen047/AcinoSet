@@ -8,13 +8,15 @@ import matplotlib.pyplot as plt
 from typing import Dict, List
 from cv2 import Rodrigues
 from matplotlib import collections  as mc
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QGridLayout, QSizePolicy
 from .misc import get_pose_params
 from .points import common_image_points
 from .utils import create_board_object_pts, load_scene
 
-plt.style.use(os.path.join('/configs', 'mplstyle.yaml'))
+plt.style.use(os.path.join('..', 'configs', 'mplstyle.yaml'))
 pg.setConfigOptions(antialias=True)
 
 
@@ -75,9 +77,11 @@ def create_grid(obj_points, board_shape, color=[0.5]*3):
     return mesh
 
 
-def plot_calib_board(img_points, board_shape, camera_resolution, frame_fpath=None):
+def plot_calib_board(img_points, board_shape, camera_resolution, frame_fpath=None, obj_corners=None):
     corners = np.array(img_points, dtype=np.float32)
-    plt.figure(figsize=(8, 4.5))
+    if obj_corners is not None:
+        obj_corners = np.array(obj_corners, dtype=np.float32)
+    plt.figure(figsize=(16, 9), dpi=120)
     if frame_fpath:
         plt.imshow(plt.imread(frame_fpath))
 
@@ -94,14 +98,81 @@ def plot_calib_board(img_points, board_shape, camera_resolution, frame_fpath=Non
             for r in range(rows - 1):
                 edges.append(c + r * cols)
                 edges.append(c + (r + 1) * cols)
-        lc = mc.LineCollection(pts[edges].reshape(-1, 2, 2), color='r', linewidths=0.25)
-
+        lc = mc.LineCollection(pts[edges].reshape(-1, 2, 2), color='r', linewidths=0.1)
         plt.gca().add_collection(lc)
+
+    if obj_corners is not None:
+        for pts in obj_corners:
+            pts = pts.reshape(-1, 2)
+            cols = board_shape[0]
+            rows = board_shape[1]
+            edges = []
+            for r in range(rows):
+                for c in range(cols - 1):
+                    edges.append(c + r * cols)
+                    edges.append(c + r * cols + 1)
+            for c in range(cols):
+                for r in range(rows - 1):
+                    edges.append(c + r * cols)
+                    edges.append(c + (r + 1) * cols)
+            lc = mc.LineCollection(pts[edges].reshape(-1, 2, 2), color='b', linewidths=0.1)
+            plt.gca().add_collection(lc)
+
         plt.gca().set_xlim((0, camera_resolution[0]))
         plt.gca().set_ylim((camera_resolution[1], 0))
 
     plt.show()
 
+def plot_corners(img_points, obj_corners, board_shape, camera_resolution, frame_fpath=None):
+    corners = np.array(img_points, dtype=np.float32)
+    obj_corners = np.array(obj_corners, dtype=np.float32)
+    plt.figure(figsize=(16, 9), dpi=120)
+    if frame_fpath:
+        plt.imshow(plt.imread(frame_fpath))
+
+    for pts in corners:
+        pts = pts.reshape(-1, 2)
+        plt.scatter(pts[:, 0], pts[:, 1], color="r", s=2)
+
+    for pts in obj_corners:
+        pts = pts.reshape(-1, 2)
+        plt.scatter(pts[:, 0], pts[:, 1], color="b", s=2)
+
+    plt.gca().set_xlim((0, camera_resolution[0]))
+    plt.gca().set_ylim((camera_resolution[1], 0))
+
+    plt.show()
+
+def plot_confidence_ellipse(x, y, ax, n_std=3.0, facecolor='none', **kwargs):
+        if x.size != y.size:
+            raise ValueError("x and y must be the same size")
+
+        cov = np.cov(x, y)
+        pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
+        # Using a special case to obtain the eigenvalues of this
+        # two-dimensionl dataset.
+        ell_radius_x = np.sqrt(1 + pearson)
+        ell_radius_y = np.sqrt(1 - pearson)
+        ellipse = Ellipse((0, 0), width=ell_radius_x * 2, height=ell_radius_y * 2,
+                        facecolor=facecolor, **kwargs)
+
+        # Calculating the stdandard deviation of x from
+        # the squareroot of the variance and multiplying
+        # with the given number of standard deviations.
+        scale_x = np.sqrt(cov[0, 0]) * n_std
+        mean_x = np.mean(x)
+
+        # calculating the stdandard deviation of y ...
+        scale_y = np.sqrt(cov[1, 1]) * n_std
+        mean_y = np.mean(y)
+
+        transf = transforms.Affine2D() \
+            .rotate_deg(45) \
+            .scale(scale_x, scale_y) \
+            .translate(mean_x, mean_y)
+
+        ellipse.set_transform(transf + ax.transData)
+        return ax.add_patch(ellipse)
 
 class Animation:
     def __init__(self, title, scene_fpath, centered=False, dark_mode=False):
@@ -348,7 +419,7 @@ def plot_marker_3d(pts_3d, frames=None, fitted_pts_3d=None, fig_title='3D points
     plt.show(block=False)
 
 
-def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplstyle_fpath=None):
+def plot_optimized_states(x, idxs, smoothed_x=None, mplstyle_fpath=None):
     x = np.array(x)
     if smoothed_x is not None:
         smoothed_x = np.array(smoothed_x)
@@ -381,7 +452,6 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplsty
         ['theta_12'], ['theta_13']
     ]
 
-    idxs = get_pose_params(mode=mode, lure=lure)
     titles = []
     label_lists = []
     for title, lbl in zip(_titles, _label_lists):
@@ -391,13 +461,20 @@ def plot_optimized_states(x, smoothed_x=None, mode='default', lure=False, mplsty
 
     idxs = [[idxs[l] for l in lbl] for lbl in label_lists]
 
-    plt_shape = [len(titles)//2, 2]
+    if len(titles) == 1:
+        plt_shape = [1, 1]
+    else:
+        plt_shape = [len(titles)//2, 2]
     fig, axs = plt.subplots(*plt_shape, figsize=(plt_shape[1]*7, plt_shape[0]*4))
+
 
     for i in range(plt_shape[0]):
         for j in range(plt_shape[1]):
             k = 2*i+j
-            ax = axs[i,j] if len(axs.shape) > 1 else axs[j]
+            if plt_shape[1] > 1:
+                ax = axs[i,j] if plt_shape[0] > 1 else axs[j]
+            else:
+                ax = axs
             ax.set_title(titles[k])
             ax.plot(x[:, idxs[k]])
             lgnd = label_lists[k]

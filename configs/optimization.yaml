@@ -1,0 +1,154 @@
+prefix: jeb   # Journal of Experimental Biology
+dlc_thresh: 0.8
+
+marker:
+  - l_eye
+  - r_eye
+  - nose
+  - neck_base
+  - spine
+  - lure
+
+skeleton:
+  - ['nose', 'l_eye']
+  - ['nose', 'r_eye']
+  - ['nose', 'neck_base']
+  - ['l_eye', 'neck_base']
+  - ['r_eye', 'neck_base']
+  - ['neck_base', 'spine']
+  - ['spine', 'tail_base']
+  - ['tail_base', 'tail1']
+  - ['tail1', 'tail2']
+  - ['neck_base', 'r_shoulder']
+  - ['r_shoulder', 'r_front_knee']
+  - ['r_front_knee', 'r_front_ankle']
+  - ['r_front_ankle', 'r_front_paw']
+  - ['neck_base', 'l_shoulder']
+  - ['l_shoulder', 'l_front_knee']
+  - ['l_front_knee', 'l_front_ankle']
+  - ['l_front_ankle', 'l_front_paw']
+  - ['tail_base', 'r_hip']
+  - ['r_hip', 'r_back_knee']
+  - ['r_back_knee', 'r_back_ankle']
+  - ['r_back_ankle', 'r_back_paw']
+  - ['tail_base', 'l_hip']
+  - ['l_hip', 'l_back_knee']
+  - ['l_back_knee', 'l_back_ankle']
+  - ['l_back_ankle', 'l_back_paw']
+
+FTE:
+  cost_func:
+    redescending:
+      a: 3
+      b: 10
+      c: 20
+  R_scale: 1.5
+  R:
+    nose: 1.2
+    l_eye: 1.24
+    r_eye: 1.18
+    neck_base: 2.08
+    spine: 2.04
+    tail_base: 2.52
+    tail1: 2.73
+    tail2: 1.83
+    r_shoulder: 3.47
+    r_front_knee: 2.75
+    r_front_ankle: 2.69
+    r_front_paw: 2.24
+    l_shoulder: 3.4
+    l_front_knee: 2.91
+    l_front_ankle: 2.85
+    l_front_paw: 2.27
+    r_hip: 3.26
+    r_back_knee: 2.76
+    r_back_ankle: 2.33
+    r_back_paw: 2.4
+    l_hip: 3.53
+    l_back_knee: 2.69
+    l_back_ankle: 2.49
+    l_back_paw: 2.34
+    lure: 3
+  Q:  # model parameters variance
+    x_0: 4
+    y_0: 7
+    z_0: 5
+    phi_0: 13
+    theta_0: 9
+    psi_0: 26
+    l_1: 4
+    phi_1: 32
+    theta_1: 18
+    psi_1: 12
+    theta_2: 43
+    phi_3: 10
+    theta_3: 53
+    psi_3: 34
+    theta_4: 90
+    psi_4: 43
+    theta_5: 118
+    psi_5: 51
+    theta_6: 247
+    theta_7: 186
+    theta_8: 194
+    theta_9: 164
+    theta_10: 295
+    theta_11: 243
+    theta_12: 334
+    theta_13: 149
+    x_l: 4
+    y_l: 7
+    z_l: 5
+  shutter_delay:
+    mode: const   # off or const or variable
+    interpolation: vel  # vel or acc
+  R_pw1:
+    nose: 2.71
+    l_eye: 3.06
+    r_eye: 2.99
+    neck_base: 4.07
+    spine: 5.53
+    tail_base: 4.67
+    tail1: 6.05
+    tail2: 5.6
+    r_shoulder: 5.01
+    r_front_knee: 5.11
+    r_front_ankle: 5.24
+    r_front_paw: 4.85
+    l_shoulder: 5.18
+    l_front_knee: 5.28
+    l_front_ankle: 5.5
+    l_front_paw: 4.9
+    r_hip: 4.7
+    r_back_knee: 4.7
+    r_back_ankle: 5.21
+    r_back_paw: 5.11
+    l_hip: 5.1
+    l_back_knee: 5.27
+    l_back_ankle: 5.75
+    l_back_paw: 5.44
+  R_pw2:
+    nose: 2.8
+    l_eye: 3.24
+    r_eye: 3.42
+    neck_base: 3.8
+    spine: 4.4
+    tail_base: 5.43
+    tail1: 5.22
+    tail2: 7.29
+    r_shoulder: 8.19
+    r_front_knee: 6.5
+    r_front_ankle: 5.9
+    r_front_paw: 6.18
+    l_shoulder: 8.83
+    l_front_knee: 6.52
+    l_front_ankle: 6.22
+    l_front_paw: 6.34
+    r_hip: 6.8
+    r_back_knee: 6.12
+    r_back_ankle: 5.37
+    r_back_paw: 5.98
+    l_hip: 7.83
+    l_back_knee: 6.44
+    l_back_ankle: 6.1
+    l_back_paw: 6.38

@@ -2,6 +2,8 @@ import os
 import sys
 import json
 import pickle
+import dill
+from typing import Dict, Any
 import numpy as np
 import pandas as pd
 from glob import glob
@@ -14,6 +16,51 @@ from pprint import pprint
 
 
 # ========== LOAD FUNCTIONS ==========
+
+def save_pickle(filename: str, data: Dict) -> None:
+    """Saves dictionary as a pickle file to a user supplied destination directory.
+
+    Args:
+        filename: Full path to the directory and he filename for the pickle file.
+        data: The data to be saved.
+    """
+    with open(filename, "wb") as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+def load_pickle(filename: str) -> Dict:
+    """Reads data from a pickle file.
+
+    Args:
+        filename: Full path to the pickle file.
+
+    Returns:
+        Read data into a dictionary.
+    """
+    with open(filename, "rb") as handle:
+        return pickle.load(handle)
+
+def save_dill(filename: str, data: Any) -> None:
+    """Saves dictionary as a pickle file to a user supplied destination directory using dill.
+
+    Args:
+        filename: Full path to the directory and he filename for the pickle file.
+        data: The data to be saved.
+    """
+    with open(filename, "wb") as handle:
+        dill.dump(data, handle, protocol=pickle.DEFAULT_PROTOCOL)
+
+
+def load_dill(filename: str) -> Dict:
+    """Reads data from a pickle file using dill.
+
+    Args:
+        filename: Full path to the pickle file.
+
+    Returns:
+        Read data into a dictionary.
+    """
+    with open(filename, "rb") as handle:
+        return dill.load(handle)
 
 def load_points(fpath, verbose=False):
     with open(fpath, 'r') as f:
@@ -239,15 +286,19 @@ def save_optimised_cheetah(positions, out_fpath, extra_data=None, for_matlab=Tru
 
 
 def save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_func, start_frame, save_as_csv=True, out_fname=None) -> List:
+    video_fpaths = sorted(glob(os.path.join(out_dir, 'cam[1-9].mp4')))  # check current dir for videos
+    if not video_fpaths:
+        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir),
+                                                'cam[1-9].mp4')))  # check parent dir for videos
+
     if video_fpaths:
         k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
         assert len(k_arr) == len(video_fpaths)
+
+        xyz_labels = ['x', 'y', 'likelihood']  # same format as DLC
+        pdindex = pd.MultiIndex.from_product([bodyparts, xyz_labels], names=['bodyparts', 'coords'])
         if not isinstance(position3d_arr, list):
             position3d_arr = [position3d_arr] * len(video_fpaths)
-
-        xyz_labels = ['x', 'y', 'likelihood'] # same format as DLC
-        pdindex = pd.MultiIndex.from_product([bodyparts, xyz_labels], names=['bodyparts', 'coords'])
-        print(bodyparts)
 
         out_fname = os.path.basename(out_dir) if out_fname is None else out_fname
 

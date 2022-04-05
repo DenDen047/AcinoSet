@@ -10,7 +10,7 @@ from .points import find_corners_images, EOM_curve_fit
 from . import misc
 from pprint import pprint
 from . import plotting
-from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target, get_gaze_target_from_positions
+from .misc import get_3d_marker_coords, get_markers, get_skeleton, Logger, get_gaze_target_from_positions
 from .vid import proc_video, VideoProcessorCV
 from .sba import _sba_board_points, _sba_points
 from .calib import calibrate_camera, calibrate_fisheye_camera, \
@@ -18,9 +18,9 @@ from .calib import calibrate_camera, calibrate_fisheye_camera, \
     create_undistort_point_function, create_undistort_fisheye_point_function, \
     triangulate_points, triangulate_points_fisheye, \
     project_points, project_points_fisheye, \
-    _calibrate_pairwise_extrinsics
+    _calibrate_pairwise_extrinsics, project_board_points, save_scene
 from .plotting import plot_calib_board, plot_optimized_states, \
-    plot_extrinsics, plot_marker_3d, Cheetah
+    plot_extrinsics, plot_marker_3d, Cheetah, plot_corners as plot_board_corners, plot_confidence_ellipse
 
 
 def extract_corners_from_images(img_dir, out_fpath, board_shape, board_edge_len, window_size=11, remove_unused_images=False):
@@ -92,7 +92,16 @@ def calibrate_standard_intrinsics(points_fpath, out_fpath):
     obj_pts = utils.create_board_object_pts(board_shape, board_edge_len)
     k, d, r, t = calibrate_camera(obj_pts, points, cam_res)
     print('K:\n', k, '\nD:\n', d)
-    utils.save_camera(out_fpath, cam_res, k, d)
+    utils.save_camera(out_fpath, cam_res, k, d) # d[:, :4]
+
+    # Reprojection error.
+    obj_projected_pts = project_board_points(obj_pts, k, d, r, t)
+    projected_pts = points.reshape((-1, 9, 2))
+    diff = obj_projected_pts - projected_pts
+    residuals = diff.reshape(-1, 2)
+    rmse = np.linalg.norm(residuals) / np.sqrt(residuals.shape[0])
+    print(f"Intrinsic calibration reprojection error (px): {rmse:.4f}")
+
     return k, d, r, t, points
 
 
@@ -181,8 +190,8 @@ def plot_scene(data_dir, scene_fname=None, manual_points_only=False, **kwargs):
     plot_extrinsics(scene_fpath, pts_2d, frames, triangulate_points_fisheye, manual_points_only, **kwargs)
 
 
-def plot_cheetah_states(states, smoothed_states=None, mode='default', lure=False, out_fpath=None, mplstyle_fpath=None):
-    fig, axs = plot_optimized_states(states, smoothed_states, mode, lure, mplstyle_fpath)
+def plot_cheetah_states(states, smoothed_states=None, out_fpath=None, mplstyle_fpath=None):
+    fig, axs = plot_optimized_states(states['x'], states['idx'], smoothed_states, mplstyle_fpath)
     if out_fpath is not None:
         fig.savefig(out_fpath, transparent=True)
         print(f'Saved {out_fpath}\n')
@@ -318,7 +327,7 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     return out_fpath
 
 
-def save_fte(states, mode, out_dir, cam_params, start_frame, intermode='pos', lure=False, directions=True, save_videos=True) -> str:
+def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', lure=False, directions=True, save_videos=True) -> str:
     video_fpaths = []
     k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
     for name in cam_names:
@@ -329,17 +338,16 @@ def save_fte(states, mode, out_dir, cam_params, start_frame, intermode='pos', lu
     n_cam = len(video_fpaths)
 
     # save 3d points
-    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, lure=lure, intermode=intermode)   # state -> 3d marker
+    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, intermode=intermode)   # state -> 3d marker
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     utils.save_optimised_cheetah(position3d_arr, out_fpath, extra_data=dict(**states, start_frame=start_frame))
 
     if save_videos:
         # reproject 3d points into 2d
-        position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, mode=mode, lure=lure, intermode=intermode, directions=directions)   # state -> 3d marker
-        bodyparts = get_markers(mode, lure=lure, directions=directions)
+        bodyparts = states['marker']
         point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
         # save videos
-        create_labeled_videos(point2d_dfs, video_fpaths, out_dir=out_dir, draw_skeleton=True, directions=directions)
+        create_labeled_videos(point2d_dfs, bodyparts, states['skeletons'], video_fpaths, out_dir=out_dir, draw_skeleton=True)
 
     return out_fpath
 
@@ -381,14 +389,13 @@ def get_vid_info(path_dir, vid_extension='mp4'):
 
 def create_labeled_videos(
     point2d_dfs: List,
+    bodyparts,
+    skeletons,
     video_fpaths: List,
     videotype='mp4', codec='mp4v', outputframerate=None, out_dir=None,
     draw_skeleton=False,
     pcutoff=0.5, dotsize=3,
     colormap='jet', skeleton_color='white',
-    lure: bool = False,
-    coe: bool = False,
-    directions: bool = False
 ):
     from functools import partial
     from multiprocessing import Pool
@@ -399,23 +406,8 @@ def create_labeled_videos(
 
     print('Saving labeled videos...')
 
-    # setting for drawing directions
-    if directions:
-        lure = False
-        coe = True  # center of eyes
-
-    # get drawn body parts
-    bodyparts = get_markers()
-    if lure and not 'lure' in bodyparts:
-        bodyparts.append('lure')
-    if coe and not 'coe' in bodyparts:
-        bodyparts.append('coe')
-
     # get connections for skelton (and directions)
-    bodyparts2connect = get_skeleton() if draw_skeleton else None
-    if directions:
-        bodyparts2connect.append(['coe', 'lure'])
-        bodyparts2connect.append(['coe', 'gaze_target'])
+    bodyparts2connect = skeletons if draw_skeleton else None
 
     if out_dir is None:
         out_dir = os.path.relpath(os.path.dirname(video_fpaths[0]), os.getcwd())

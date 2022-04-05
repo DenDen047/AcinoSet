@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import json
+import yaml
 import numpy as np
 import sympy as sp
 from scipy.spatial import distance
@@ -40,19 +41,28 @@ if __name__ == '__main__':
     parser.add_argument('--dlc', type=str, default='dlc', help='The file path to the flick/run to be optimized.')
     parser.add_argument('--start_frame', type=int, default=1, help='The frame at which the optimized reconstruction will start.')
     parser.add_argument('--end_frame', type=int, default=-1, help='The frame at which the optimized reconstruction will end. If it is -1, start_frame and end_frame are automatically set.')
-    parser.add_argument('--dlc_thresh', type=float, default=0.8, help='The likelihood of the dlc points below which will be excluded from the optimization.')
+    parser.add_argument('--config', type=str, default='/configs/optimization.yaml', help='The path of a yaml config.')
     parser.add_argument('--lure', action='store_true', help='Estimating the lure position.')
     parser.add_argument('--ignore_cam', type=int, action='append', required=False, help='The camera index/indices to ignore for the trajectory estimation')
     parser.add_argument('--plot', action='store_true', help='Show the plots.')
     args = parser.parse_args()
 
-    mode = 'head_stabilize'
-
     DATA_DIR = os.path.normpath(args.data_dir)
     LABEL_DIR = os.path.normpath(args.label_dir) if args.label_dir is not None else None
     assert os.path.exists(DATA_DIR), f'Data directory not found: {DATA_DIR}'
 
-    # load video info
+    # Load the config
+    with open(args.config) as f:
+        # The FullLoader parameter handles the conversion from YAML
+        # scalar values to Python the dictionary format
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    target_markers = config['marker']
+    file_prefix = config['prefix']
+    dlc_thresh = config['dlc_thresh']
+    lure = 'lure' in target_markers
+    skeletons = misc.get_skeleton(config['skeleton'], target_markers)
+
+    # Load video info
     res, fps, num_frames, _ = app.get_vid_info(DATA_DIR)    # path to the directory having original videos
     vid_params = {
         'vid_resolution': res,
@@ -61,17 +71,19 @@ if __name__ == '__main__':
     }
     assert 0 < args.start_frame < num_frames, f'start_frame must be strictly between 0 and {num_frames}'
     assert 0 != args.end_frame <= num_frames, f'end_frame must be less than or equal to {num_frames}'
-    assert 0 <= args.dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
+    assert 0 <= dlc_thresh <= 1, 'dlc_thresh must be from 0 to 1'
 
     # generate labelled videos with DLC measurement data
-    DLC_DIR = os.path.join(DATA_DIR, args.dlc)
-    assert os.path.exists(DLC_DIR), f'DLC directory not found: {DLC_DIR}'
+    dlc_dir = os.path.join(DATA_DIR, args.dlc)
+    dlc_pw_dir = os.path.join(DATA_DIR, 'dlc_pw')
+    assert os.path.exists(dlc_dir), f'DLC directory not found: {dlc_dir}'
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
     assert res == cam_res
     # load DLC data
-    dlc_points_fpaths = sorted(glob(os.path.join(DLC_DIR, '*.h5')))
+    dlc_points_fpaths = sorted(glob(os.path.join(dlc_dir, '*.h5')))
+    dlc_pw_points_fpaths = sorted(glob(os.path.join(dlc_pw_dir, 'cam*-predictions.pickle')))
     assert n_cams == len(dlc_points_fpaths), f'# of dlc .h5 files != # of cams in {n_cams}_cam_scene_sba.json'
     m = re.findall(r'cam([0-9]+)', ' '.join(dlc_points_fpaths))
     cam_names = [i for i in m] # 1-6
@@ -100,14 +112,12 @@ if __name__ == '__main__':
     else:
         label_fpaths = sorted(glob(os.path.join(LABEL_DIR, '*.h5')))
         points_2d_df = utils.load_dlc_points_as_df(label_fpaths, verbose=False)
-    filtered_points_2d_df = points_2d_df.query(f'likelihood > {args.dlc_thresh}')    # ignore points with low likelihood
+    filtered_points_2d_df = points_2d_df.query(f'likelihood > {dlc_thresh}')    # ignore points with low likelihood
 
     # getting parameters
     if args.end_frame == -1:
         # Automatically set start and end frame
         # defining the first and end frame as detecting all the markers on any of cameras simultaneously
-        target_markers = misc.get_markers(mode)
-
         def frame_condition_with_key_markers(i: int, key_markers: List[str], n_min_cam: int) -> bool:
             markers_condition = ' or '.join([f'marker=="{ref}"' for ref in key_markers])
             markers = filtered_points_2d_df.query(
@@ -140,7 +150,7 @@ if __name__ == '__main__':
             body_end_frame = min(end_frames)
 
         # frames for lure
-        if args.lure:
+        if lure:
             start_frames = []
             end_frames = []
             max_idx = int(filtered_points_2d_df['frame'].max() + 1)
@@ -172,26 +182,31 @@ if __name__ == '__main__':
     assert start_frame < end_frame
 
     # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, DLC_DIR, mode, args.dlc_thresh, params=vid_params, video=True)
+    # _ = core.dlc(DATA_DIR, dlc_dir, mode, dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
-    # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, args.dlc_thresh, camera_params, scene_fpath, params=vid_params)
+    # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
-    # core.sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params, plot=args.plot, directions=True)
+    # core.sba(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params=vid_params, plot=args.plot, directions=True)
     # print('========== EKF ==========\n')
-    # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, args.dlc_thresh, scene_fpath, params=vid_params)
+    # core.ekf(DATA_DIR, points_2d_df, mode, camera_params, start_frame, end_frame, dlc_thresh, scene_fpath, params=vid_params)
     print('========== FTE ==========\n')
-    OUT_DIR = os.path.join(DATA_DIR, f'fte_{mode}') + ('_lure' if args.lure else '')
+    OUT_DIR = os.path.join(DATA_DIR, f'{file_prefix}_fte')
     pkl_fpath = core.fte(
         OUT_DIR,
-        points_2d_df, mode, camera_params,
-        start_frame, end_frame, body_start_frame, body_end_frame, lure_start_frame, lure_end_frame,
-        args.dlc_thresh,
+        points_2d_df,
+        config['FTE'],
+        camera_params,
+        target_markers,
+        skeletons,
+        start_frame, end_frame,
+        body_start_frame, body_end_frame,
+        lure_start_frame, lure_end_frame,
+        dlc_thresh,
         scene_fpath,
+        dlc_points_fpaths=dlc_points_fpaths,
+        dlc_pw_points_fpaths=dlc_pw_points_fpaths,
         params=vid_params,
-        lure=args.lure,
-        shutter_delay=True,         # True/False
-        shutter_delay_mode='const', # const/variable
-        interpolation_mode='acc',   # pos/vel/acc
+        enable_ppms=True,
         video=True,
         plot=args.plot
     )
