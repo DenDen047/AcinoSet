@@ -182,7 +182,7 @@ if __name__ == '__main__':
     assert start_frame < end_frame
 
     # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, dlc_dir, mode, dlc_thresh, params=vid_params, video=True)
+    # _ = core.dlc(DATA_DIR, dlc_dir, target_markers, skeletons, dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')

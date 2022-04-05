@@ -215,7 +215,13 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
                 for ind, num_bp in bpts2color:
                     if not np.isnan(df_xy[:, ind, idx]).any():
                         if (df_likelihood[ind, idx] > pcutoff) or np.isnan(df_likelihood[ind, idx]):
-                            cv.circle(image, tuple(df_xy[:, ind, idx].astype(np.uint16)), dotsize, colors[num_bp], cv.FILLED)
+                            if ind == np.where(all_bpts == 'lure')[0][0]:
+                                c = np.asarray(df_xy[:, ind, idx].astype(np.uint16))
+                                pt1 = tuple(c - 10)
+                                pt2 = tuple(c + 10)
+                                cv.rectangle(image, pt1, pt2, colors[num_bp], 2)
+                            else:
+                                cv.circle(image, tuple(df_xy[:, ind, idx].astype(np.uint16)), dotsize, colors[num_bp], cv.FILLED)
             except KeyError:
                 pass # do nothing to image if frame_idx is not in df
             clip.save_frame(image)
