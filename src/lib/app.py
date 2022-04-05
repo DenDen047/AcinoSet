@@ -327,7 +327,7 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     return out_fpath
 
 
-def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', lure=False, directions=True, save_videos=True) -> str:
+def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', directions=True, save_videos=True) -> str:
     video_fpaths = []
     k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
     for name in cam_names:
@@ -347,6 +347,10 @@ def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', lure=Fal
         bodyparts = states['marker']
         point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
         # save videos
+        print(point2d_dfs)
+        print(bodyparts)
+        print(states['skeletons'])
+        print(video_fpaths)
         create_labeled_videos(point2d_dfs, bodyparts, states['skeletons'], video_fpaths, out_dir=out_dir, draw_skeleton=True)
 
     return out_fpath

@@ -142,7 +142,8 @@ def get_pose_params(markers: List[str]) -> Dict[str, List]:
     if any(map(lambda x: x in markers, ['l_eye', 'r_eye', 'nose'])):
         states.update(['x_0', 'y_0', 'z_0', 'phi_0', 'theta_0', 'psi_0'])
     if 'neck_base' in markers:
-        states.update(['phi_1', 'theta_1', 'psi_1'])
+        states.update(['l_1', 'phi_1', 'theta_1', 'psi_1'])
+        # states.update(['phi_1', 'theta_1', 'psi_1'])
     if 'spine' in markers:
         states.update(['theta_2'])
     if 'lure' in markers:
@@ -184,7 +185,12 @@ def get_3d_marker_coords(states: Dict, idx, tau: float = 0.0, directions: bool =
         result.append(p_r_eye.T)
         result.append(p_l_eye.T)
     # neck
-    if all(map(idx.__contains__, ('psi_1', 'phi_1', 'theta_1'))):
+    if all(map(idx.__contains__, ('l_1', 'psi_1', 'phi_1', 'theta_1'))):
+        RI_1  = rot_z(x[idx['psi_1']]) @ rot_x(x[idx['phi_1']]) @ rot_y(x[idx['theta_1']]) @ RI_0
+        R1_I  = RI_1.T
+        p_neck_base = p_head + R1_I @ func([-x[idx['l_1']], 0, 0])
+        result.append(p_neck_base.T)
+    elif all(map(idx.__contains__, ('psi_1', 'phi_1', 'theta_1'))):
         RI_1  = rot_z(x[idx['psi_1']]) @ rot_x(x[idx['phi_1']]) @ rot_y(x[idx['theta_1']]) @ RI_0
         R1_I  = RI_1.T
         p_neck_base = p_head + R1_I @ func([-0.28, 0, 0])

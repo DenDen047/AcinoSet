@@ -124,7 +124,7 @@ def fte(
         le = len(lure_state['x']) - (lure_end_frame - end_frame)
         for i in ['x', 'dx', 'ddx']:
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
-        state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
+        state['shutter_delay'] = (body_state['shutter_delay'][:, bs:be] + lure_state['shutter_delay'][:, ls:le]) / 2
         # idx
         state['idx'] = body_state['idx']
         state['idx'].update({k: v+len(body_state['idx']) for k,v in lure_state['idx'].items()})
@@ -162,7 +162,7 @@ def fte(
     save_error_dists(pix_errors, out_dir)
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(state, out_dir, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
+    out_fpath = app.save_fte(state, out_dir, camera_params, start_frame, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(out_dir, 'fte.pdf')

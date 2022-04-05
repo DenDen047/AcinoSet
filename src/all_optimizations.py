@@ -56,11 +56,11 @@ if __name__ == '__main__':
         # The FullLoader parameter handles the conversion from YAML
         # scalar values to Python the dictionary format
         config = yaml.load(f, Loader=yaml.FullLoader)
-    target_markers = config['marker']
+    markers = config['marker']
     file_prefix = config['prefix']
     dlc_thresh = config['dlc_thresh']
-    lure = 'lure' in target_markers
-    skeletons = misc.get_skeleton(config['skeleton'], target_markers)
+    lure = 'lure' in markers
+    skeletons = misc.get_skeleton(config['skeleton'], markers)
 
     # Load video info
     res, fps, num_frames, _ = app.get_vid_info(DATA_DIR)    # path to the directory having original videos
@@ -77,6 +77,7 @@ if __name__ == '__main__':
     dlc_dir = os.path.join(DATA_DIR, args.dlc)
     dlc_pw_dir = os.path.join(DATA_DIR, 'dlc_pw')
     assert os.path.exists(dlc_dir), f'DLC directory not found: {dlc_dir}'
+    assert os.path.exists(dlc_pw_dir), f'DLC directory not found: {dlc_pw_dir}'
 
     # load scene data
     k_arr, d_arr, r_arr, t_arr, cam_res, n_cams, scene_fpath = utils.find_scene_file(DATA_DIR, verbose=False)
@@ -134,7 +135,7 @@ if __name__ == '__main__':
         start_frames = []
         end_frames = []
         max_idx = int(filtered_points_2d_df['frame'].max() + 1)
-        for marker in target_markers:
+        for marker in markers:
             for i in range(max_idx):    # start_frame
                 if frame_condition_with_key_markers(i, [marker], 2):
                     start_frames.append(i)
@@ -182,7 +183,7 @@ if __name__ == '__main__':
     assert start_frame < end_frame
 
     # print('========== DLC ==========\n')
-    # _ = core.dlc(DATA_DIR, dlc_dir, target_markers, skeletons, dlc_thresh, params=vid_params, video=True)
+    # _ = core.dlc(DATA_DIR, dlc_dir, markers, skeletons, dlc_thresh, params=vid_params, video=True)
     # print('========== Triangulation ==========\n')
     # core.tri(DATA_DIR, points_2d_df, 0, num_frames - 1, dlc_thresh, camera_params, scene_fpath, params=vid_params)
     # print('========== SBA ==========\n')
@@ -196,7 +197,7 @@ if __name__ == '__main__':
         points_2d_df,
         config['FTE'],
         camera_params,
-        target_markers,
+        markers,
         skeletons,
         start_frame, end_frame,
         body_start_frame, body_end_frame,
