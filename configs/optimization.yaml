@@ -37,6 +37,9 @@ skeleton:
   - ['l_back_ankle', 'l_back_paw']
 
 FTE:
+  shutter_delay:
+    mode: const   # off or const or variable
+    interpolation: vel  # vel or acc
   cost_func:
     redescending:
       a: 3
@@ -99,9 +102,6 @@ FTE:
     x_l: 4
     y_l: 7
     z_l: 5
-  shutter_delay:
-    mode: const   # off or const or variable
-    interpolation: vel  # vel or acc
   R_pw1:
     nose: 2.71
     l_eye: 3.06
