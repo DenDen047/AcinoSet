@@ -4,8 +4,6 @@ import json
 import copy
 import numpy as np
 import sympy as sp
-from scipy.spatial import distance
-from scipy.optimize import least_squares
 import pandas as pd
 import pyomo.environ as pyo
 import matplotlib.pyplot as plt
@@ -16,8 +14,6 @@ from time import time
 from pprint import pprint
 from tqdm import tqdm
 from scipy.interpolate import UnivariateSpline
-from argparse import ArgumentParser
-from scipy.stats import linregress
 from pyomo.opt import SolverFactory
 
 from lib import misc, utils, app, metric
