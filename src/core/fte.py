@@ -313,7 +313,6 @@ def _fte(
     psi_est = np.append(psi_est, [psi_est[-1]])
 
     # Remove datafames from memory to conserve memory usage.
-    del points_2d_df
     del points_3d_df
 
     # Obtain base and pairwise measurments.
@@ -322,7 +321,6 @@ def _fte(
     cam_idx = 0
     for dlc_path, dlc_pw_path in zip(base_label_fpaths, dlc_pw_label_fpaths):
         # Pairwise correspondence data.
-        h5_filename = os.path.basename(dlc_path)
         pw_data[cam_idx] = utils.load_pickle(dlc_pw_path)
         df_temp = pd.read_hdf(dlc_path)
         base_data[cam_idx] = list(df_temp.to_numpy())
@@ -354,6 +352,16 @@ def _fte(
     pair_dict = misc.get_pairwise_graph()
 
     # ======= WEIGHTS =======
+    def get_likelihood_from_df(n, c, l):
+        n_mask = points_2d_df['frame']  == n-1
+        l_mask = points_2d_df['marker'] == markers[l-1]
+        c_mask = points_2d_df['camera'] == c-1
+        val    = points_2d_df[n_mask & l_mask & c_mask]
+        if len(val['likelihood'].values) > 0:
+            return val['likelihood'].values[0]
+        else:
+            return 0.0
+
     def init_meas_weights(m, n, c, l, w):
         # Determine if the current measurement is the base prediction or a pairwise prediction.
         cam_idx = c - 1
@@ -361,17 +369,14 @@ def _fte(
         values = pw_data[cam_idx][n-1 + start_frame]
         likelihoods = values['pose'][2::3]
         if w < 2:
-            base = index_dict[marker]
-            likelihoods = base_data[cam_idx][n-1 + start_frame][2::3]
+            likelihood = get_likelihood_from_df(start_frame+n, c, l)
         else:
-            try:
-                base = pair_dict[marker][w - 2]
-            except IndexError:
-                return 0.0
+            base = pair_dict[marker][w-2]
+            likelihood = likelihoods[base]
 
         # Filter measurements based on DLC threshold.
         # This does ensures that badly predicted points are not considered in the objective function.
-        return 1 / R_pw[w - 1][l - 1] if likelihoods[base] > dlc_thresh else 0.0
+        return 1 / R_pw[w-1][l-1] if likelihood > dlc_thresh else 0.0
 
     m.meas_err_weight = pyo.Param(
         m.N, m.C, m.L, m.W,
@@ -380,18 +385,27 @@ def _fte(
     )
     m.model_err_weight = pyo.Param(
         m.P,
-        initialize=lambda m, p: 1 / Q[p - 1] if Q[p - 1] != 0.0 else 0.0
+        initialize=lambda m, p: 1 / Q[p-1] if Q[p-1] != 0.0 else 0.0
     )
 
     # ===== PARAMETERS =====
+    def get_meas_from_df(n, c, l, d):
+        n_mask = points_2d_df['frame']  == n-1
+        l_mask = points_2d_df['marker'] == markers[l-1]
+        c_mask = points_2d_df['camera'] == c-1
+        d_idx  = {1:'x', 2:'y'}
+        val    = points_2d_df[n_mask & l_mask & c_mask]
+        if len(val[d_idx[d]].values) > 0:
+            return val[d_idx[d]].values[0]
+        else:
+            return 0.0
+
     def init_measurements(m, n, c, l, d2, w):
         # Determine if the current measurement is the base prediction or a pairwise prediction.
         cam_idx = c - 1
         marker = markers[l - 1]
         if w < 2:
-            base = index_dict[marker]
-            val = base_data[cam_idx][(n - 1) + start_frame][d2 - 1::3]
-            return val[base]
+            return get_meas_from_df(start_frame+n, c, l, d2)
         else:
             try:
                 values = pw_data[cam_idx][(n - 1) + start_frame]
@@ -409,7 +423,7 @@ def _fte(
     m.dx          = pyo.Var(m.N, m.P, domain=pyo.Reals) # velocity
     m.ddx         = pyo.Var(m.N, m.P, domain=pyo.Reals) # acceleration
     m.poses       = pyo.Var(m.N, m.L, m.D3, domain=pyo.Reals)
-    m.slack_model = pyo.Var(m.N, m.P, domain=pyo.Reals)
+    m.slack_model = pyo.Var(m.N, m.P, domain=pyo.Reals, initialize=0.0)
     m.slack_meas  = pyo.Var(m.N, m.C, m.L, m.D2, m.W, initialize=0.0, domain=pyo.Reals)
     if sd:
         if sd_mode == 'const':
