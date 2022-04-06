@@ -44,7 +44,7 @@ FTE:
   enable_ppms: True
   shutter_delay:
     mode: const   # off or const or variable
-    interpolation: vel  # vel or acc
+    interpolation: acc  # vel or acc
   cost_func:
     redescending:
       a: 3
