@@ -2,8 +2,8 @@ prefix: jeb   # Journal of Experimental Biology
 dlc_thresh: 0.8
 
 dlc:
-  body: dlc_pw
-  lure: dlc_naoya
+  body: dlc
+  lure: dlc
 
 marker:
   - nose
@@ -44,7 +44,7 @@ FTE:
   enable_ppms: False
   shutter_delay:
     mode: const   # off or const or variable
-    interpolation: vel  # vel or acc
+    interpolation: acc  # vel or acc
   cost_func:
     redescending:
       a: 3
