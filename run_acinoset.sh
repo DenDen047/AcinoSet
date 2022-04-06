@@ -14,8 +14,8 @@ docker run -it --rm \
     ${IMAGE_NAME} \
     /bin/bash
 
-# python all_optimizations.py --dlc dlc --data_dir /data/2017_08_29/bottom/zorro/flick2 && \
-# python all_optimizations.py --dlc dlc_pw --data_dir /data/2017_08_29/top/jules/run1_1 && \
+# python all_optimizations.py --data_dir /data/2017_08_29/bottom/zorro/flick2 && \
+# python all_optimizations.py --data_dir /data/2017_08_29/top/jules/run1_1 && \
 # python all_optimizations.py --dlc dlc_pw --data_dir /data/2017_08_29/top/jules/run1_2 && \
 # python all_optimizations.py --dlc dlc_pw --data_dir /data/2017_08_29/top/phantom/run1_1 && \
 # python all_optimizations.py --dlc dlc_pw --data_dir /data/2017_09_02/bottom/jules/flick2_1 && \

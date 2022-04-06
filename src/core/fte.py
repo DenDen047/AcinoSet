@@ -124,7 +124,8 @@ def fte(
         le = len(lure_state['x']) - (lure_end_frame - end_frame)
         for i in ['x', 'dx', 'ddx']:
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
-        state['shutter_delay'] = (body_state['shutter_delay'][:, bs:be] + lure_state['shutter_delay'][:, ls:le]) / 2
+        state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
+        # state['shutter_delay'] = (body_state['shutter_delay'][:, bs:be] + lure_state['shutter_delay'][:, ls:le]) / 2
         # idx
         state['idx'] = body_state['idx']
         state['idx'].update({k: v+len(body_state['idx']) for k,v in lure_state['idx'].items()})

@@ -3,7 +3,7 @@ dlc_thresh: 0.8
 
 dlc:
   body: dlc_pw
-  lure: dlc
+  lure: dlc_pw
 
 marker:
   - l_eye
