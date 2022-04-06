@@ -2,8 +2,8 @@ prefix: jeb   # Journal of Experimental Biology
 dlc_thresh: 0.8
 
 dlc:
-  body: dlc_pw
-  lure: dlc_pw
+  body: dlc
+  lure: dlc
 
 marker:
   - l_eye
