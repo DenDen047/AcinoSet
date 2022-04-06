@@ -289,7 +289,6 @@ def save_sba(positions, mode, out_dir, cam_params, start_frame, directions=True,
         head_pos = np.mean([r_eye_pos, l_eye_pos], axis=0)
         gaze_targets = np.array([get_gaze_target_from_positions(head_pos[i,:], nose_pos[i,:], r_eye_pos[i,:]) for i in range(len(head_pos))]) # (timestep, xyz)
         head_pos = np.expand_dims(head_pos, axis=1) # (timestep, 1, xyz)
-        print(head_pos)
         gaze_targets = np.expand_dims(gaze_targets, axis=1) # (timestep, 1, xyz)
         positions = np.concatenate((positions, head_pos, gaze_targets), axis=1)
 
@@ -327,7 +326,7 @@ def save_ekf(states, mode, out_dir, scene_fpath, start_frame, directions=True, s
     return out_fpath
 
 
-def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', lure=False, directions=True, save_videos=True) -> str:
+def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', directions=True, save_videos=True) -> str:
     video_fpaths = []
     k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
     for name in cam_names:

@@ -32,7 +32,7 @@ def pyo_i(i: int) -> int:
 
 def fte(
     out_dir,
-    points_2d_df,
+    body_points_2d_df, lure_points_2d_df,
     fte_config,
     camera_params,
     markers,
@@ -42,8 +42,8 @@ def fte(
     lure_start_frame, lure_end_frame,
     dlc_thresh,
     scene_fpath,
-    dlc_points_fpaths: List[str],
-    dlc_pw_points_fpaths: List[str],
+    base_label_fpaths: List[str],
+    dlc_pw_label_fpaths: List[str],
     params: Dict = {},
     enable_ppms: bool = False,
     video: bool = True,
@@ -83,10 +83,10 @@ def fte(
 
         body_state = _fte(
             out_dir,
-            dlc_points_fpaths, dlc_pw_points_fpaths,
+            base_label_fpaths, dlc_pw_label_fpaths,
             markers,
             misc.get_pose_params(markers),  # {'x_0': 0, 'y_0': 1, 'z_0': 2, ...}
-            points_2d_df, camera_params,
+            body_points_2d_df, camera_params,
             body_start_frame, body_end_frame, dlc_thresh,
             params=params,
             enable_ppms=enable_ppms,
@@ -99,10 +99,10 @@ def fte(
         markers = ['lure']
         lure_state = _fte(
             out_dir,
-            dlc_points_fpaths, dlc_pw_points_fpaths,
+            base_label_fpaths, dlc_pw_label_fpaths,
             markers,
             misc.get_pose_params(markers),  # {'x_l': 0, 'y_l': 1, 'z_l': 2}
-            points_2d_df, camera_params,
+            lure_points_2d_df, camera_params,
             lure_start_frame, lure_end_frame, dlc_thresh,
             params=params,
             enable_ppms=False,
@@ -125,6 +125,7 @@ def fte(
         for i in ['x', 'dx', 'ddx']:
             state[i] = np.concatenate((body_state[i][bs:be, :], lure_state[i][ls:le, :]), axis=1)
         state['shutter_delay'] = body_state['shutter_delay'][:, bs:be]
+        # state['shutter_delay'] = (body_state['shutter_delay'][:, bs:be] + lure_state['shutter_delay'][:, ls:le]) / 2
         # idx
         state['idx'] = body_state['idx']
         state['idx'].update({k: v+len(body_state['idx']) for k,v in lure_state['idx'].items()})
@@ -132,7 +133,7 @@ def fte(
         state['marker'] = body_state['marker'] + lure_state['marker']
     elif body:
         state = body_state
-    else:
+    elif lure:
         state = lure_state
     state['skeletons'] = skeletons
 
@@ -157,12 +158,13 @@ def fte(
             columns=['frame', 'marker', 'x', 'y', 'z'],
         ).astype({'frame': 'int64', 'marker': 'str', 'x': 'float64', 'y': 'float64', 'z': 'float64'})
         points_3d_dfs.append(points_3d_df)
-    pix_errors = metric.residual_error(points_2d_df, points_3d_dfs, markers, camera_params)
-    state['reprj_errors'] = pix_errors
+    pix_errors = metric.residual_error(body_points_2d_df, points_3d_dfs, markers, camera_params)
     save_error_dists(pix_errors, out_dir)
+    state['body_reprj_errors'] = pix_errors
+    state['lure_reprj_errors'] = metric.residual_error(lure_points_2d_df, points_3d_dfs, markers, camera_params)
 
     # save pkl/mat and video files
-    out_fpath = app.save_fte(state, out_dir, camera_params, start_frame, lure=lure, directions=True, intermode=intermode, save_videos=video)
+    out_fpath = app.save_fte(state, out_dir, camera_params, start_frame, directions=True, intermode=intermode, save_videos=video)
 
     # plot cheetah state
     fig_fpath = os.path.join(out_dir, 'fte.pdf')
@@ -175,9 +177,8 @@ def fte(
 
 def _fte(
     out_dir,
-    dlc_points_fpaths, dlc_pw_points_fpaths,
-    markers,
-    idx,
+    base_label_fpaths, dlc_pw_label_fpaths,
+    markers, idx,
     points_2d_df,
     camera_params,
     start_frame, end_frame, dlc_thresh,
@@ -203,7 +204,7 @@ def _fte(
     app.start_logging(os.path.join(out_dir, 'fte.log'))
 
     # symbolic vars
-    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, theta_0, psi_0]
+    sym_list  = sp.symbols(list(idx.keys()))    # [x_0, y_0, z_0, phi_0, ...]
     positions = misc.get_3d_marker_coords({'x': sym_list}, idx)
 
     t0 = time()
@@ -323,7 +324,7 @@ def _fte(
     pw_data = {}
     base_data = {}
     cam_idx = 0
-    for dlc_path, dlc_pw_path in zip(dlc_points_fpaths, dlc_pw_points_fpaths):
+    for dlc_path, dlc_pw_path in zip(base_label_fpaths, dlc_pw_label_fpaths):
         # Pairwise correspondence data.
         h5_filename = os.path.basename(dlc_path)
         pw_data[cam_idx] = utils.load_pickle(dlc_pw_path)
@@ -394,7 +395,6 @@ def _fte(
         if w < 2:
             base = index_dict[marker]
             val = base_data[cam_idx][(n - 1) + start_frame][d2 - 1::3]
-
             return val[base]
         else:
             try:
@@ -450,7 +450,7 @@ def _fte(
 
     for n in m.N:
         for p in m.P:
-            if n < len(init_x): #init using known values
+            if n <= len(init_x): #init using known values
                 m.x[n,p].value = init_x[n-1,p-1]
                 m.dx[n,p].value = init_dx[n-1,p-1]
                 m.ddx[n,p].value = init_ddx[n-1,p-1]
