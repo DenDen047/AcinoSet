@@ -450,17 +450,14 @@ def _fte(
 
     for n in m.N:
         for p in m.P:
-            m.x[n,p].value = init_x[n-1,p-1]
-            m.dx[n,p].value = init_dx[n-1,p-1]
-            m.ddx[n,p].value = init_ddx[n-1,p-1]
-            # if n <= len(init_x): #init using known values
-            #     m.x[n,p].value = init_x[n-1,p-1]
-            #     m.dx[n,p].value = init_dx[n-1,p-1]
-            #     m.ddx[n,p].value = init_ddx[n-1,p-1]
-            # else: #init using last known value
-            #     m.x[n,p].value = init_x[-1,p-1]
-            #     m.dx[n,p].value = init_dx[-1,p-1]
-            #     m.ddx[n,p].value = init_ddx[-1,p-1]
+            if n <= len(init_x): #init using known values
+                m.x[n,p].value = init_x[n-1,p-1]
+                m.dx[n,p].value = init_dx[n-1,p-1]
+                m.ddx[n,p].value = init_ddx[n-1,p-1]
+            else: #init using last known value
+                m.x[n,p].value = init_x[-1,p-1]
+                m.dx[n,p].value = init_dx[-1,p-1]
+                m.ddx[n,p].value = init_ddx[-1,p-1]
         # init pose
         var_list = [m.x[n,p].value for p in m.P]
         for l in m.L:
