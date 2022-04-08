@@ -41,7 +41,7 @@ skeleton:
   - ['l_back_ankle', 'l_back_paw']
 
 FTE:
-  enable_ppms: True
+  enable_ppms: False
   shutter_delay:
     mode: const   # off or const or variable
     interpolation: acc  # vel or acc
