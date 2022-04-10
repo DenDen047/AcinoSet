@@ -3,7 +3,7 @@ dlc_thresh: 0.8
 
 dlc:
   body: dlc_pw
-  lure: dlc_pw
+  lure: dlc_naoya
 
 marker:
   - nose
@@ -41,10 +41,10 @@ skeleton:
   - ['l_back_ankle', 'l_back_paw']
 
 FTE:
-  enable_ppms: False
+  enable_ppms: True
   shutter_delay:
     mode: const   # off or const or variable
-    interpolation: acc  # vel or acc
+    interpolation: vel  # vel or acc
   cost_func:
     redescending:
       a: 3
