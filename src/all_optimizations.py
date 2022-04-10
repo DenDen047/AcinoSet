@@ -75,7 +75,7 @@ if __name__ == '__main__':
         assert os.path.exists(data), f'Label directory not found: {data}'
         # load label data
         if mode == 'h5':
-            return sorted(glob(os.path.join(data, '*.h5')))
+            return sorted(glob(os.path.join(data, '**', '*.h5'), recursive=True))
         elif mode == 'pkl':
             return sorted(glob(os.path.join(data, 'cam*-predictions.pickle')))
         else:
@@ -110,9 +110,9 @@ if __name__ == '__main__':
 
     # load labelled/DLC measurement dataframe (pixels, likelihood)
     body_points_2d_df = utils.load_dlc_points_as_df(body_label_fpaths, verbose=False)
-    filtered_body_points_2d_df = body_points_2d_df.query(f'likelihood > {dlc_thresh}')    # ignore points with low likelihood
+    filtered_body_points_2d_df = body_points_2d_df.query(f'likelihood > {dlc_thresh}')
     lure_points_2d_df = utils.load_dlc_points_as_df(lure_label_fpaths, verbose=False)
-    filtered_lure_points_2d_df = lure_points_2d_df.query(f'likelihood > {dlc_thresh}')    # ignore points with low likelihood
+    filtered_lure_points_2d_df = lure_points_2d_df.query(f'likelihood > {dlc_thresh}')
 
     # getting parameters
     if args.end_frame == -1:

@@ -295,12 +295,12 @@ def _fte(
     # Use the cheetahs spine to estimate the initial trajectory with a 3rd degree spline.
     frame_est = np.arange(end_frame+1)
 
-    nose_pts = points_3d_df[points_3d_df['marker']=='nose'][['frame', 'x', 'y', 'z']].values
-    nose_pts[:, 1] = nose_pts[:, 1] - 0.055
-    nose_pts[:, 3] = nose_pts[:, 3] + 0.055
-    traj_est_x = UnivariateSpline(nose_pts[:, 0], nose_pts[:, 1])
-    traj_est_y = UnivariateSpline(nose_pts[:, 0], nose_pts[:, 2])
-    traj_est_z = UnivariateSpline(nose_pts[:, 0], nose_pts[:, 3])
+    base_pts = points_3d_df[points_3d_df['marker']==('lure' if lure else 'nose')][['frame', 'x', 'y', 'z']].values
+    base_pts[:, 1] = base_pts[:, 1] - 0.055
+    base_pts[:, 3] = base_pts[:, 3] + 0.055
+    traj_est_x = UnivariateSpline(base_pts[:, 0], base_pts[:, 1])
+    traj_est_y = UnivariateSpline(base_pts[:, 0], base_pts[:, 2])
+    traj_est_z = UnivariateSpline(base_pts[:, 0], base_pts[:, 3])
     x_est = np.array(traj_est_x(frame_est))
     y_est = np.array(traj_est_y(frame_est))
     z_est = np.array(traj_est_z(frame_est))
