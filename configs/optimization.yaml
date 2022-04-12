@@ -3,7 +3,7 @@ dlc_thresh: 0.8
 
 dlc:
   body: dlc_pw
-  lure: dlc-manual-labels-naoya-2022-03-30
+  lure: dlc_pw
 
 marker:
   - nose
