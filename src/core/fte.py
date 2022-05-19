@@ -127,6 +127,7 @@ def fte(
         state['idx'].update({k: v+len(body_state['idx']) for k,v in lure_state['idx'].items()})
         # marker
         state['marker'] = body_state['marker'] + lure_state['marker']
+        state['direction_marker'] = body_state['marker'] + lure_state['marker']
     elif body:
         state = body_state
     elif lure:
@@ -138,7 +139,7 @@ def fte(
     intermode = interpolation_mode
 
     # calculate residual error
-    positions_3ds = misc.get_all_marker_coords_from_states(state, n_cams, directions=True, intermode=intermode)
+    positions_3ds = misc.get_all_marker_coords_from_states(state, n_cams, intermode=intermode)
     points_3d_dfs = []
     for positions_3d in positions_3ds:
         frames = np.arange(start_frame, end_frame+1).reshape((-1, 1))

@@ -337,13 +337,17 @@ def save_fte(states, out_dir, cam_params, start_frame, intermode='pos', directio
     n_cam = len(video_fpaths)
 
     # save 3d points
-    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, intermode=intermode)   # state -> 3d marker
+    position3d_arr = misc.get_all_marker_coords_from_states(states, n_cam, directions=directions, intermode=intermode)   # state -> 3d marker
     out_fpath = os.path.join(out_dir, 'fte.pickle')
     utils.save_optimised_cheetah(position3d_arr, out_fpath, extra_data=dict(**states, start_frame=start_frame))
 
     if save_videos:
         # reproject 3d points into 2d
-        bodyparts = states['marker']
+        if directions:
+            bodyparts = states['marker'] + ['coe', 'gaze_target']
+            states['skeletons'] += [['coe', 'gaze_target']]
+        else:
+            bodyparts = states['marker']
         point2d_dfs = utils.save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_points_fisheye, start_frame)
         # save videos
         create_labeled_videos(point2d_dfs, bodyparts, states['skeletons'], video_fpaths, out_dir=out_dir, draw_skeleton=True)

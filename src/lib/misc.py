@@ -331,11 +331,11 @@ def get_all_marker_coords_from_states(states, n_cam: int, directions: bool = Fal
         if shutter_delay is not None:
             taus = shutter_delay[i]
             marker_pos = np.array([
-                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, idx, tau, intermode=intermode)
+                get_3d_marker_coords({'x': x, 'dx': dx, 'ddx': ddx}, idx, tau, intermode=intermode, directions=directions)
                 for x, dx, ddx, tau in zip(states['x'], states['dx'], states['ddx'], taus)
             ])  # (timestep, marker_idx, xyz)
         else:
-            marker_pos = np.array([get_3d_marker_coords({'x': x}, idx) for x in states['x']]) # (timestep, marker_idx, xyz)
+            marker_pos = np.array([get_3d_marker_coords({'x': x}, idx) for x in states['x']], directions=directions)    # (timestep, marker_idx, xyz)
         marker_pos_arr.append(marker_pos)
 
     return marker_pos_arr

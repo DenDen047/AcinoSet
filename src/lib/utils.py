@@ -288,8 +288,7 @@ def save_optimised_cheetah(positions, out_fpath, extra_data=None, for_matlab=Tru
 def save_3d_cheetah_as_2d(position3d_arr, out_dir, cam_params, video_fpaths, bodyparts, project_func, start_frame, save_as_csv=True, out_fname=None) -> List:
     video_fpaths = sorted(glob(os.path.join(out_dir, 'cam[1-9].mp4')))  # check current dir for videos
     if not video_fpaths:
-        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir),
-                                                'cam[1-9].mp4')))  # check parent dir for videos
+        video_fpaths = sorted(glob(os.path.join(os.path.dirname(out_dir), 'cam[1-9].mp4')))  # check parent dir for videos
 
     if video_fpaths:
         k_arr, d_arr, r_arr, t_arr, cam_res, cam_names, n_cams = cam_params
