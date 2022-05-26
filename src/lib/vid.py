@@ -215,7 +215,7 @@ def CreateVideo(clip, df, pcutoff, bodyparts2plot, bodyparts2connect, dotsize, c
                 for ind, num_bp in bpts2color:
                     if not np.isnan(df_xy[:, ind, idx]).any():
                         if (df_likelihood[ind, idx] > pcutoff) or np.isnan(df_likelihood[ind, idx]):
-                            if ind == np.where(all_bpts == 'lure')[0][0]:
+                            if 'lure' in all_bpts and ind == np.where(all_bpts == 'lure')[0][0]:
                                 c = np.asarray(df_xy[:, ind, idx].astype(np.uint16))
                                 pt1 = tuple(c - 10)
                                 pt2 = tuple(c + 10)

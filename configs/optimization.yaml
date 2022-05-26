@@ -1,4 +1,4 @@
-prefix: jeb_consistentneck   # Journal of Experimental Biology
+prefix: jeb   # Journal of Experimental Biology
 dlc_thresh: 0.8
 
 dlc:
@@ -11,6 +11,7 @@ marker:
   - l_eye
   - neck_base
   - spine
+  - lure
 
 skeleton:
   - ['nose', 'l_eye']
