@@ -143,8 +143,8 @@ def get_pose_params(markers: List[str]) -> Dict[str, List]:
     if any(map(lambda x: x in markers, ['l_eye', 'r_eye', 'nose'])):
         states.extend(['x_0', 'y_0', 'z_0', 'phi_0', 'theta_0', 'psi_0'])
     if 'neck_base' in markers:
-        # states.extend(['l_1', 'phi_1', 'theta_1', 'psi_1'])
-        states.extend(['phi_1', 'theta_1', 'psi_1'])
+        states.extend(['l_1', 'phi_1', 'theta_1', 'psi_1'])
+        # states.extend(['phi_1', 'theta_1', 'psi_1'])
     if 'spine' in markers:
         states.extend(['theta_2'])
     # lure
